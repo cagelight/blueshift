@@ -15,8 +15,13 @@ namespace blueshift {
 		connection(socket &);
 		~connection();
 		
+		bool read_available();
+		
 		ssize_t read(char * buf, size_t buf_len);
 		ssize_t write(char const * buf, size_t buf_len);
+		ssize_t sendfile(int fd, off_t * offs, size_t size);
+
+		int get_fd() { return sock.fd; }
 		
 	protected:
 		socket sock {};
@@ -29,6 +34,25 @@ namespace blueshift {
 		std::unique_ptr<connection> accept();
 		
 	protected:
+		socket sock {};
+	};
+
+	struct future_connection {
+		future_connection(const char * host, const char * service);
+		~future_connection();
+		
+		enum class status {
+			ready,
+			connecting,
+			failed,
+			completed
+		};
+		
+		status get_status();
+		std::unique_ptr<connection> get_connection();
+		
+	protected:
+		status status_;
 		socket sock {};
 	};
 }

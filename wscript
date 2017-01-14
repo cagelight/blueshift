@@ -7,7 +7,9 @@ top = '.'
 out = 'build'
 
 projname = 'blueshift'
+
 coreprog_name = projname
+coremod_name = projname + "_module"
 
 g_cflags = ["-Wall", "-Wextra", "-std=c++17"]
 def btype_cflags(ctx):
@@ -23,6 +25,8 @@ def options(opt):
 
 def configure(ctx):
 	ctx.load("g++")
+	ctx.check(features='c cprogram', lib='pthread', uselib_store='PTHREAD')
+	ctx.check(features='c cprogram', lib='dl', uselib_store='DL')
 	btup = ctx.options.build_type.upper()
 	if btup in ["DEBUG", "NATIVE", "RELEASE"]:
 		Logs.pprint("PINK", "Setting up environment for known build type: " + btup)
@@ -35,11 +39,25 @@ def configure(ctx):
 		Logs.error("UNKNOWN BUILD TYPE: " + btup)
 		
 def build(bld):
-	files =  bld.path.ant_glob('src/*.cc')
+	
+	mod_install_files = bld.path.ant_glob('src/module/*.hh')
+	bld.install_files('${PREFIX}/include/blueshift', mod_install_files)
+	
+	bluemod_files = bld.path.ant_glob('src/module/*.cc')
+	bluemod = bld (
+		features = "cxx cxxshlib",
+		target = coremod_name,
+		source = bluemod_files,
+		uselib = [],
+		includes = [os.path.join(top, 'src', 'module')],
+	)
+	
+	coreprog_files = bld.path.ant_glob('src/*.cc')
 	coreprog = bld (
 		features = "cxx cxxprogram",
 		target = coreprog_name,
-		source = files,
-		uselib = [],
-		includes = os.path.join(top, 'src'),
+		source = coreprog_files,
+		use = [coremod_name],
+		uselib = ['PTHREAD', 'DL'],
+		includes = [os.path.join(top, 'src'), os.path.join(top, 'src', 'module')],
 	)
