@@ -7,9 +7,11 @@
 
 namespace blueshift {
 	
-	class protocol;
+	struct protocol;
 	
 	namespace http {
+		
+		static constexpr char const * default_mime = "application/octet-stream";
 		
 		typedef uint_fast16_t status_code_ut;
 		enum struct status_code : status_code_ut {
@@ -87,76 +89,41 @@ namespace blueshift {
 		
 		char const * text_for_status(status_code stat);
 		
-		class request { 
-			friend protocol;
-		public:
+		struct request_header {
 			
-			request() = default;
-			~request();
-			
-			void parse(char const * buf, size_t buf_len);
-			
-			status_code const & get_status () const { return status; }
-			std::unordered_map<std::experimental::string_view, char const *> const & get_fields () const { return fields; }
-			
-		private:
-			
-			std::string header_copy;
-			
-			status_code status = status_code::internal_server_error;
-			
-			char const * method;
-			char const * http_version;
-			char const * path;
-			
-			std::unordered_map<std::experimental::string_view, char const *> fields;
-			
-			char * hbuf = nullptr;
-			size_t hbuf_len = 0;
-			
-		};
-		
-		class response { 
-			friend protocol;
-		public:
-			
-			response();
-			~response() = default;
-			
-			void reset();
-			
-			std::string create_header();
-			
-			status_code status = status_code::ok;
+			std::string method;
+			std::string version;
+			std::string path;
 			std::unordered_map<std::string, std::string> fields;
 			
-			void set_body(char const * text, char const * MIME);
-			void set_body(std::vector<char> const &, char const * MIME);
-			void set_body(file &&);
+			void clear();
+			status_code parse_from(std::vector<char> const &);
+			std::vector<char> serialize();
 			
-			void use_proxy(char const * host, uint16_t port);
+			inline size_t content_length() {
+				auto cli = fields.find("Content-Length");
+				if (cli != fields.end()) return strtoul(cli->second.c_str(), nullptr, 10);
+				return 0;
+			}
 			
-			void set_body_generic();
+			inline char const * content_type() {
+				auto cti = fields.find("Content-Type");
+				if (cti != fields.end()) return cti->second.c_str();
+				return nullptr;
+			}
 			
-		private:
-			
-			enum struct body_type : uint_fast8_t {
-				buffer,
-				file,
-				proxy
-			};
-			
-			body_type btype = body_type::buffer;
-			
-			std::string proxy_host;
-			std::string proxy_service; //port
-			request * proxy_req;
-			
-			std::string mime;
-			std::vector<char> body;
-			
-			file body_file;
 		};
 		
+		struct response_header {
+			
+			std::string version;
+			status_code code;
+			std::unordered_map<std::string, std::string> fields;
+			
+			void clear();
+			bool parse_from(std::vector<char> const &);
+			std::vector<char> serialize();
+			
+		};
 	}
 }

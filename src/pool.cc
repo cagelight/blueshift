@@ -21,7 +21,7 @@ struct link {
 
 struct server {
 	blueshift::listener * lisock;
-	blueshift::server_request_handler handler;
+	blueshift::module::interface interface;
 };
 
 static link anchor;
@@ -64,7 +64,7 @@ void thread_run() {
 				accepted = true;
 				
 				link * new_link = new link;
-				new_link->prot = new blueshift::protocol {std::move(c), li.second.handler};
+				new_link->prot = new blueshift::protocol {std::move(c), li.second.interface};
 				pool_rwslck.write_lock();
 				this_link->prev->next = new_link;
 				new_link->prev = this_link->prev;
@@ -106,7 +106,7 @@ void blueshift::pool::init() {
 	anchor.next = &anchor;
 	anchor.prev = &anchor;
 	
-	for (unsigned int i = 0; i < std::thread::hardware_concurrency(); i++) {
+	for (unsigned int i = 0; i < std::thread::hardware_concurrency(); i++) { // FIXME
 		pool_workers.emplace_back(thread_run);
 	}
 }
@@ -135,7 +135,7 @@ void blueshift::pool::term() noexcept {
 
 #include "module.hh"
 
-void blueshift::pool::start_server(uint16_t port, server_request_handler h) {
+void blueshift::pool::start_server(uint16_t port, module::interface h) {
 	lilock.lock();
 	lis[port] = { new blueshift::listener {port}, h };
 	lilock.unlock();

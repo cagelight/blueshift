@@ -40,7 +40,7 @@ int main(int argc, char * * argv) {
 		return -1;
 	}
 	
-	blueshift::m_import imp {};
+	blueshift::module::import imp {};
 	
 	void * mod_init = dlsym(handle, "_blueshift_module_init");
 	if (!mod_init) {
@@ -54,7 +54,7 @@ int main(int argc, char * * argv) {
 	imp.stop_server = blueshift::pool::stop_server;
 	
 	try {
-		reinterpret_cast<void (*) (blueshift::m_import const *)>(mod_init)(&imp);
+		reinterpret_cast<void (*) (blueshift::module::import const *)>(mod_init)(&imp);
 	} catch (blueshift::general_exception & e) {
 		srcprintf_error("exception thrown during module initialization:\n%s", e.what());
 		return -1;

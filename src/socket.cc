@@ -111,24 +111,69 @@ blueshift::future_connection::future_connection(const char * host, const char * 
 	setsockopt(sock.fd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable));
 	if (sock.fd == -1) srcthrow("failed to acquire socket file descriptor");
 	
-	addrinfo * addri;
-	int r = getaddrinfo(host, service, nullptr, &addri);
+	addrinfo * addri, * addrii;
+	addrinfo hint {};
+	hint.ai_family = AF_INET;
+	hint.ai_socktype = SOCK_STREAM;
+	int r = getaddrinfo(host, service, &hint, &addri);
 	if (r != 0) {
 		status_ = status::failed;
 		return;
 	}
-	sockaddr_in * saddr = reinterpret_cast<sockaddr_in *>(addri + 1);
-	sock.addr = *saddr;
+	
+	sockaddr_in * saddr = nullptr;
+	addrii = addri;
+	
+	while (addrii != nullptr) {
+		if (addrii->ai_family == AF_INET) {
+			saddr = reinterpret_cast<sockaddr_in *>(addri->ai_addr);
+			break;
+		}
+		addrii = addrii->ai_next;
+	}
+	
+	if (!saddr) {
+		status_ = status::failed;
+		freeaddrinfo(addri);
+		return;
+	}
+	
+	sock.addr = * saddr;
+	freeaddrinfo(addri);
 	
 	srcprintf_debug("opening proxy to: %s", inet_ntoa(saddr->sin_addr));
-	
-	sock.addr.sin_family = AF_INET;
 
 	r = connect(sock.fd, reinterpret_cast<struct sockaddr *>(&sock.addr), sizeof(sock.addr));
 	if (r != 0 && errno != EINPROGRESS) {
 		status_ = status::failed;
 		return;
 	}
+	status_ = status::connecting;
+}
+
+blueshift::future_connection::future_connection(const char * ip, uint16_t port) {
+	
+	sock.fd = ::socket(PF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+	setsockopt(sock.fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
+	setsockopt(sock.fd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable));
+	if (sock.fd == -1) srcthrow("failed to acquire socket file descriptor");
+	
+	int r = inet_aton(ip, &sock.addr.sin_addr);
+	if (!r) {
+		status_ = status::failed;
+		return;
+	}
+	
+	sock.addr.sin_port = port;
+	sock.addr.sin_family = AF_INET;
+	
+	srcprintf_debug("opening proxy to: %s", inet_ntoa(sock.addr.sin_addr));
+	r = connect(sock.fd, reinterpret_cast<struct sockaddr *>(&sock.addr), sizeof(sock.addr));
+	if (r != 0 && errno != EINPROGRESS) {
+		status_ = status::failed;
+		return;
+	}
+	
 	status_ = status::connecting;
 }
 

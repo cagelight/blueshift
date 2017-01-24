@@ -34,7 +34,7 @@ char const * blueshift::MIME_from_file_extension(char const * ext) {
 }
 
 blueshift::file::file(char const * path) {
-	fd = open(path, O_RDONLY);
+	fd = ::open(path, O_RDONLY);
 	
 	if (fd < 0) return;
 	

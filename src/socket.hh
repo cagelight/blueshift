@@ -39,6 +39,7 @@ namespace blueshift {
 
 	struct future_connection {
 		future_connection(const char * host, const char * service);
+		future_connection(const char * ip, uint16_t port);
 		~future_connection();
 		
 		enum class status {

@@ -10,6 +10,8 @@ namespace blueshift {
 char const * get_extension(char const * path);
 char const * MIME_from_file_extension(char const * ext);
 
+typedef std::shared_ptr<struct file> shared_file;
+
 struct file {
 	
 	enum struct status : uint_fast8_t {
@@ -18,7 +20,9 @@ struct file {
 		directory
 	};
 	
-	file() = default;
+	static shared_file open(char const * path) { return shared_file {new file {path}}; }
+	
+	file() = delete;
 	file(char const * path);
 	~file();
 	

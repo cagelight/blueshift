@@ -1,90 +1,63 @@
 #include "http.hh"
 
-blueshift::http::request::~request() {
-	if (hbuf) free(hbuf);
+void blueshift::http::request_header::clear() {
+	method.clear();
+	version.clear();
+	path.clear();
+	fields.clear();
 }
 
-static char * next_token(char * tok, char * max_tok) { // max_tok is always assumed to point to a null terminator, the last one of a char buffer
-	do { tok++; } while (*tok != '\0');
-	do { tok++; } while (tok < max_tok && *tok == '\0');
-	return tok;
+blueshift::http::status_code blueshift::http::request_header::parse_from(std::vector<char> const & data) {
+	typedef std::vector<char>::const_iterator cci;
+	cci i, ib = data.begin();
+	for(i = ib; i != data.end() && *i != ' '; i++) {}
+	if (i == data.end()) return status_code::bad_request;
+	method = {ib, i};
+	if (i++ == data.end()) return status_code::bad_request;
+	ib = i;
+	for(i = ib; i != data.end() && *i != ' '; i++) {}
+	if (i == data.end()) return status_code::bad_request;
+	path = {ib, i};
+	if (i++ == data.end()) return status_code::bad_request;
+	ib = i;
+	for(i = ib; i != data.end() && *i != '\r'; i++) {}
+	if (i == data.end()) return status_code::bad_request;
+	version = {ib, i};
+	if (i++ == data.end() || *i != '\n' || i++ == data.end()) return status_code::bad_request;
+	
+	while (i != data.end() && *i != '\r' && i + 1 != data.end() && *(i+1) != '\n') {
+		ib = i;
+		for(i = ib; i != data.end() && *i != ':'; i++) {}
+		if (i == data.end()) return status_code::bad_request;
+		cci fkb = ib, fke = i;
+		if (i++ == data.end() || i++ == data.end()) return status_code::bad_request;
+		ib = i;
+		for(i = ib; i != data.end() && *i != '\r'; i++) {}
+		if (i == data.end()) return status_code::bad_request;
+		fields[ {fkb, fke} ] = { ib, i };
+		if (i++ == data.end() || *i != '\n' || i++ == data.end()) return status_code::bad_request;
+	}
+	
+	if (method != "GET") return status_code::method_not_allowed;
+	if (version != "HTTP/1.1") return status_code::http_version_not_supported;
+	
+	return status_code::ok;
 }
 
-static void tokenize_line(char * tok, char * max_tok, char c) {
-	for (; tok < max_tok && *tok != '\0'; tok++) if (*tok == c) *tok = '\0';
-}
-
-void blueshift::http::request::parse(char const * buf, size_t buf_len) {
-	
-	header_copy = {buf, buf_len};
-	
-	hbuf_len = buf_len;
-	hbuf = (char *) realloc(hbuf, hbuf_len);
-	memcpy(hbuf, buf, hbuf_len);
-	
-	method = nullptr;
-	http_version = nullptr;
-	path = nullptr;
-	
-	char * cur = hbuf, * cur2 = nullptr;
-	char * const max_cur = cur + hbuf_len - 1;
-	
-	status = status_code::internal_server_error;
-	
-	for (size_t i = 0; i < hbuf_len; i++) {
-		if (hbuf[i] == '\r') hbuf[i] = '\0';
-		else if (hbuf[i] == '\n') hbuf[i] = '\0';
+std::vector<char> blueshift::http::request_header::serialize() {
+	std::vector<char> r;
+	r.insert(r.end(), method.begin(), method.end());
+	r.push_back(' ');
+	r.insert(r.end(), path.begin(), path.end());
+	r.push_back(' ');
+	r.insert(r.end(), version.begin(), version.end());
+	r.insert(r.end(), "\r\n", "\r\n" + 2);
+	for (auto const & i : fields) {
+		r.insert(r.end(), i.first.begin(), i.first.end());
+		r.insert(r.end(), ": ", ": " + 2);
+		r.insert(r.end(), i.second.begin(), i.second.end());
+		r.insert(r.end(), "\r\n", "\r\n" + 2);
 	}
-	
-	if (*max_cur != '\0') { // the protocol does not send a header unless it ends with \\r\\n\\r\\n, and those are replaced with \\0 above, so this should never happen
-		status = status_code::internal_server_error;
-		return;
-	}
-	
-	tokenize_line(cur, max_cur, ' ');
-	
-	method = cur;
-	if (strcmp(cur, "GET")) {
-		status = status_code::method_not_allowed;
-		return;
-	}
-	
-	cur = next_token(cur, max_cur);
-	if (cur == max_cur) {
-		status = status_code::bad_request;
-		return;
-	}
-	path = cur;
-	
-	cur = next_token(cur, max_cur);
-	if (cur == max_cur) {
-		status = status_code::bad_request;
-		return;
-	}
-	http_version = cur;
-	if (strcmp(cur, "HTTP/1.1")) {
-		status = status_code::http_version_not_supported;
-		return;
-	}
-	
-	status = status_code::ok;
-	
-	cur2 = cur;
-	while (true) {
-		cur = next_token(cur2, max_cur); 
-		if (cur == max_cur) break;
-		char * sct = strchr(cur, ':');
-		if (sct == nullptr || *(sct + 1) != ' ') {
-			status = status_code::bad_request;
-			return;
-		}
-		*sct = '\0';
-		*(sct + 1) = '\0';
-		cur2 = next_token(cur, max_cur);
-		if (cur == max_cur) {
-			status = status_code::bad_request;
-			return;
-		}
-		fields[cur] = cur2;
-	}
+	r.insert(r.end(), "\r\n", "\r\n" + 2);
+	return r;
 }
