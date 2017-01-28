@@ -36,24 +36,4 @@ namespace blueshift {
 	protected:
 		socket sock {};
 	};
-
-	struct future_connection {
-		future_connection(const char * host, const char * service);
-		future_connection(const char * ip, uint16_t port);
-		~future_connection();
-		
-		enum class status {
-			ready,
-			connecting,
-			failed,
-			completed
-		};
-		
-		status get_status();
-		std::unique_ptr<connection> get_connection();
-		
-	protected:
-		status status_;
-		socket sock {};
-	};
 }

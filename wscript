@@ -21,10 +21,12 @@ def btype_cflags(ctx):
 
 def options(opt):
 	opt.load("g++")
+	opt.load("nasm")
 	opt.add_option('--build_type', dest='build_type', type="string", default='RELEASE', action='store', help="DEBUG, NATIVE, RELEASE")
 
 def configure(ctx):
 	ctx.load("g++")
+	ctx.load("nasm")
 	ctx.check(features='c cprogram', lib='pthread', uselib_store='PTHREAD')
 	ctx.check(features='c cprogram', lib='dl', uselib_store='DL')
 	btup = ctx.options.build_type.upper()
@@ -44,8 +46,10 @@ def build(bld):
 	bld.install_files('${PREFIX}/include/blueshift', mod_install_files)
 	
 	bluemod_files = bld.path.ant_glob('src/module/*.cc')
+	bluemod_files += bld.path.ant_glob('src/module/*.asm')
 	bluemod = bld (
-		features = "cxx cxxshlib",
+		features = "cxx cxxshlib asm",
+		asflags = '-f elf64',
 		target = coremod_name,
 		source = bluemod_files,
 		uselib = [],

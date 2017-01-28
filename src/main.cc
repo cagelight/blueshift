@@ -18,16 +18,13 @@ static void catch_interrupt (int sig) {
 		if (!blueshift::run_sem) std::terminate();
 		blueshift::run_sem.store(false);
 		break;
-	case SIGPIPE:
-		srcprintf_debug("a SIGPIPE was ignored");
-		break;
 	}
 }
 
 int main(int argc, char * * argv) {
 	
 	signal(SIGINT, catch_interrupt);
-	signal(SIGPIPE, catch_interrupt);
+	signal(SIGPIPE, SIG_IGN);
 	
 	if (argc == 1) return -1; // TODO -- usage print
 	

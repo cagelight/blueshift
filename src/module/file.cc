@@ -3,6 +3,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <dirent.h>
+
 #include <cstring>
 #include <unordered_map>
 
@@ -18,6 +20,8 @@ static std::unordered_map<std::experimental::string_view, char const *> const ex
 	{"htm", 		"text/html"},
 	{"html", 		"text/html"},
 	{"txt", 		"text/plain"},
+	{"mp4",			"video/mp4"},
+	{"webm",		"video/webm"},
 };
 
 char const * blueshift::get_extension(char const * path) {
@@ -33,40 +37,71 @@ char const * blueshift::MIME_from_file_extension(char const * ext) {
 	return "application/octet-stream";
 }
 
-blueshift::file::file(char const * path) {
-	fd = ::open(path, O_RDONLY);
+struct file_data {
 	
-	if (fd < 0) return;
+	file_data() = default;
+	~file_data() {
+		if (fd >= 0) {
+			close(fd);
+		}
+	}
 	
-	struct stat finfo;
-	fstat(fd, &finfo);
+	int fd = -1;
+	struct stat finfo {};
+};
+
+#define fdata reinterpret_cast<file_data *>(internal_data)
+
+blueshift::file::file(std::string const & path) {
 	
-	if (S_ISREG(finfo.st_mode)) {
-		status_ = status::file;
-		last_modified = finfo.st_mtim;
-		length = finfo.st_size;
-		mime_type = MIME_from_file_extension(get_extension(path));
-	} else if (S_ISDIR(finfo.st_mode)) {
-		status_ = status::directory;
+	internal_data = new file_data {};
+	
+	fdata->fd = ::open(path.c_str(), O_RDONLY); 
+	if (fdata->fd < 0) return;
+	
+	fstat(fdata->fd, &fdata->finfo);
+	
+	if (S_ISREG(fdata->finfo.st_mode)) {
+		type_ = type::file;
+		mime_type = MIME_from_file_extension(get_extension(path.c_str()));
+	} else if (S_ISDIR(fdata->finfo.st_mode)) {
+		type_ = type::directory;
+		//fdata->dir = fdopendir(fdata->fd);
 	} else return;
 	
 } 
 
 blueshift::file::~file() {
-	close();
+	delete fdata;
 } 
 
-blueshift::file & blueshift::file::operator = (file && last) {
-	fd = last.fd;
-	status_ = last.status_;
-	last_modified = last.last_modified;
-	mime_type = std::move(last.mime_type);
-	length = last.length;
-	last.fd = -1;
-	return *this;
-} 
-
-void blueshift::file::close() {
-	if (fd >= 0) ::close(fd);
-	fd = -1;
+int blueshift::file::get_FD() const {
+	return fdata->fd;
 }
+
+size_t blueshift::file::get_size() const {
+	return fdata->finfo.st_size;
+}
+
+blueshift::time::point blueshift::file::get_last_modified() const {
+	return {fdata->finfo.st_mtim};
+}
+
+std::vector<blueshift::directory_listing> blueshift::file::get_files() const {
+	
+	if (type_ != type::directory) srcthrow("is not directory, what are you even doing");
+	std::vector<directory_listing> r {};
+	
+	DIR * d = fdopendir(fdata->fd);
+	if (!d) return r;
+	
+	for (dirent * entry = readdir(d); entry != nullptr; entry = readdir(d)) {
+		directory_listing dl {entry->d_name, type::invalid};
+		if (entry->d_type == DT_REG) dl.type_ = type::file;
+		else if (entry->d_type == DT_DIR) dl.type_ = type::directory;
+		r.push_back(dl);
+	}
+	
+	return r;
+}
+

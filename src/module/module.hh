@@ -18,20 +18,17 @@ namespace blueshift::module {
 		enum struct qe {
 			ok,
 			refuse_payload,
-			proxy_direct,
-			proxy_resolve,
 		} q = qe::ok;
-		std::string proxy_host;
-		std::string proxy_service;
-		uint16_t proxy_port;
 		void * processing_token;
 	};
 	
 	struct response_query {
 		
-		void set_body(std::vector<char> const &, char const * MIME);
-		void set_body(std::vector<char> &&, char const * MIME);
+		void set_body(std::vector<char> const &, char const * MIME = nullptr); // nullptr -> "default" MIME (see blueshift::http::default_mime)
+		void set_body(std::vector<char> &&, char const * MIME = nullptr); // nullptr -> "default" MIME (see blueshift::http::default_mime)
 		void set_body(shared_file const &, char const * MIME = nullptr); // nullptr -> resolve from extension
+		void set_body(std::string const & str, char const * MIME = nullptr); // nullptr -> text/plain
+		void set_body(char const * str, char const * MIME = nullptr); // nullptr -> text/plain
 		void reset();
 		
 		// ================
@@ -53,8 +50,9 @@ namespace blueshift::module {
 
 	struct interface {
 		mss (*query) (http::request_header const & req, request_query & reqq);
-		mss (*process) (void * token, std::vector<char> const & buffer_data);
-		mss (*finalize_response) (void * token, http::response_header & res, response_query & resq);
+		mss (*process) (void * token, http::request_header const & req, std::vector<char> const & buffer_data);
+		mss (*process_multipart) (void * token, http::request_header const & req, http::multipart_header const & mh, std::vector<char> const & multipart_data);
+		mss (*finalize_response) (void * token, http::request_header const & req, http::response_header & res, response_query & resq);
 		void (*cleanup) (void * token);
 	};
 	

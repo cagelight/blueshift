@@ -11,7 +11,11 @@ namespace blueshift {
 	
 	namespace http {
 		
-		static constexpr char const * default_mime = "application/octet-stream";
+		typedef std::unordered_map<istring, std::string, ihash, std::equal_to<istring>> field_map;
+		
+		static std::string const default_mime {"application/octet-stream"};
+		
+		std::string urldecode(std::string const &);
 		
 		typedef uint_fast16_t status_code_ut;
 		enum struct status_code : status_code_ut {
@@ -94,35 +98,80 @@ namespace blueshift {
 			std::string method;
 			std::string version;
 			std::string path;
-			std::unordered_map<std::string, std::string> fields;
+			field_map fields;
+			
+			bool is_multipart = false;
+			std::string multipart_type;
+			std::string multipart_delimiter;
 			
 			void clear();
 			status_code parse_from(std::vector<char> const &);
 			std::vector<char> serialize();
 			
-			inline size_t content_length() {
+			inline std::string const & field(char const * f) const {
+				auto i = fields.find(f);
+				if (i != fields.end()) return i->second;
+				return empty_str;
+			}
+			
+			inline size_t content_length() const {
 				auto cli = fields.find("Content-Length");
 				if (cli != fields.end()) return strtoul(cli->second.c_str(), nullptr, 10);
 				return 0;
 			}
 			
-			inline char const * content_type() {
+			inline std::string const & content_type() const {
 				auto cti = fields.find("Content-Type");
-				if (cti != fields.end()) return cti->second.c_str();
-				return nullptr;
+				if (cti != fields.end()) return cti->second;
+				return default_mime;
 			}
-			
 		};
 		
 		struct response_header {
 			
 			std::string version;
 			status_code code;
-			std::unordered_map<std::string, std::string> fields;
+			field_map fields;
 			
 			void clear();
 			bool parse_from(std::vector<char> const &);
 			std::vector<char> serialize();
+			
+			inline std::string const & field(char const * f) const {
+				auto i = fields.find(f);
+				if (i != fields.end()) return i->second;
+				return empty_str;
+			}
+			
+			inline size_t content_length() const {
+				auto cli = fields.find("Content-Length");
+				if (cli != fields.end()) return strtoul(cli->second.c_str(), nullptr, 10);
+				return 0;
+			}
+			
+			inline std::string const & content_type() const {
+				auto cti = fields.find("Content-Type");
+				if (cti != fields.end()) return cti->second;
+				return default_mime;
+			}
+			
+		};
+		
+		struct multipart_header {
+
+			std::string disposition;
+			std::string name;
+			std::string filename;
+			field_map fields;
+			
+			void clear();
+			bool parse_from(std::vector<char> const &);
+			
+			inline char const * content_type() const {
+				auto cti = fields.find("Content-Type");
+				if (cti != fields.end()) return cti->second.c_str();
+				return nullptr;
+			}
 			
 		};
 	}

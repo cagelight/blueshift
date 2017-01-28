@@ -21,11 +21,14 @@ namespace blueshift {
 		
 		status read();
 		size_t size() const {return data.size();}
-		std::vector<char> get_all_data();
-		std::vector<char> get_delimited_data();
+		std::vector<char> get_all_data(bool avoid_potential_delimiters = true);
+		std::vector<char> get_delimited_data(bool include_delimiter = true);
 		std::vector<char> get_counted_data();
 		std::vector<char> get_data(size_t num);
 		void set_counter(size_t limit);
+		void set_delimiter(std::string const &);
+		
+		std::vector<char> const & peak() const { return data; }
 		
 		inline bool counter_is_set() const {
 			return counter_lim != 0;
@@ -36,8 +39,9 @@ namespace blueshift {
 		void recalculate_delimiters();
 		
 		connection & con;
-		std::vector<char> data;
-		int delimiter_counter = 0;
+		std::vector<char> data {};
+		std::vector<char> delimiter = {'\r', '\n', '\r', '\n'};
+		size_t delimiter_counter = 0;
 		size_t delimited_position = 0;
 		size_t last_end = 0;
 		
@@ -58,20 +62,24 @@ namespace blueshift {
 		
 		status write();
 		void set_header(std::vector<char> &&);
-		void set(shared_file f);
 		void set(std::vector<char> &&);
+		void add(std::vector<char> const &);
+		
+		void set(shared_file f);
+		void set(shared_file f, off_t starting_offs, size_t ending_offs);
 		
 	private:
 		enum struct mode_e {
 			none,
 			data,
 			file,
-		} mode;
+		} mode = mode_e::none;
 		connection & con;
-		std::vector<char> header;
-		std::vector<char> data;
-		shared_file file;
-		off_t file_offs;
+		std::vector<char> header {};
+		std::vector<char> data {};
+		shared_file file = nullptr;
+		off_t file_offs = 0;
+		size_t file_size = 0;
 	};
 	
 }

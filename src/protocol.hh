@@ -26,27 +26,54 @@ namespace blueshift {
 		
 		module::interface & mi;
 		
+		bool connection_close = false;
+		
 		http::request_header req {};
 		http::response_header res {};
+		http::multipart_header mul {};
 		
 		module::request_query reqq {};
 		module::response_query resq {};
 		
+		bool do_informational = false;
+		
 		enum struct mode_e {
 			req_recv,
 			req_query,
-			proxy,
 			res_process,
+			res_multipart,
 			res_finalize,
 			res_send,
 		} mode = mode_e::req_recv;
 		
+		enum struct multipart_mode {
+			begin,
+			peak_check,
+			header,
+			body
+		} mmode = multipart_mode::header;
+		
+		enum struct multipart_wait_mode {
+			partial,
+			next,
+			end
+		} mwm;
+		
 		status do_req_recv();
 		status do_req_query();
-		status do_proxy();
 		status do_res_process();
+		status do_res_multipart();
 		status do_res_finalize();
 		status do_res_send();
+		
+		void setup_req_recv();
+		void setup_req_query();
+		void setup_res_process();
+		void setup_res_multipart();
+		void setup_res_finalize();
+		void setup_res_send();
+		
+		void setup_send_error();
 		
 		std::unique_ptr<connection> con;
 		stream_reader sr;
@@ -55,79 +82,4 @@ namespace blueshift {
 		std::vector<char> general_buffer;
 		
 	};
-	
-	/*
-	class protocol {
-	public:
-		
-		enum struct status : uint_fast8_t {
-			idle,
-			progress,
-			terminate,
-		};
-		
-		protocol(std::unique_ptr<connection> && conin, server_request_handler h);
-		~protocol();
-		
-		status update();
-		
-	private:
-		
-		static constexpr size_t work_buf_len = 512;
-		static thread_local char work_buf [work_buf_len];
-		
-		char * overflow = nullptr;
-		size_t overflow_size;
-		size_t overflow_ind = 0;
-		
-		char * proxy_buf = nullptr;
-		ssize_t proxy_bufi = 0, proxy_ind = 0;
-		
-		int8_t head_delimiter_counter = 0;
-		
-		union {
-			size_t write_ind;
-			off_t writefile_offs;
-		};
-		
-		http::request req;
-		std::vector<char> header;
-		
-		http::response res;
-		std::string res_head;
-		
-		ssize_t read(char * buf, size_t buf_len);
-		
-		status update_req_recv();
-		status update_res_calc();
-		status update_res_send_head();
-		status update_res_send_body();
-		status update_proxy();
-		
-		void setup_update_req_recv();
-		void setup_update_res_calc();
-		void setup_update_res_send_head();
-		void setup_update_res_send_body();
-		void setup_update_proxy();
-		
-		enum struct state : uint_fast8_t {
-			req_recv,
-			res_calc,
-			res_send_head,
-			res_send_body,
-			proxy,
-		};
-		
-		state u_state = state::req_recv;
-		bool res_calc_continue;
-		
-		std::unique_ptr<connection> con;
-		
-		blueshift::future_connection * proxyfuture = nullptr;
-		std::unique_ptr<connection> proxycon;
-		
-		server_request_handler srh;
-		void * token;
-	};
-	*/
 }

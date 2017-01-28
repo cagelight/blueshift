@@ -1,8 +1,8 @@
 #pragma once
 #include "com.hh"
+#include "time.hh"
 
-#include <ctime>
-
+#include <vector>
 #include <experimental/string_view> // TODO -- string_view was accepted into C++17, but was not available at the time of writing, switch when available
 
 namespace blueshift {
@@ -12,18 +12,20 @@ char const * MIME_from_file_extension(char const * ext);
 
 typedef std::shared_ptr<struct file> shared_file;
 
+struct directory_listing;
+
 struct file {
 	
-	enum struct status : uint_fast8_t {
-		invalid,
+	enum struct type : uint_fast8_t {
+		invalid, // unknown or not found
 		file,
 		directory
 	};
 	
-	static shared_file open(char const * path) { return shared_file {new file {path}}; }
+	static shared_file open(std::string const & path) { return shared_file {new file {path}}; }
 	
 	file() = delete;
-	file(char const * path);
+	file(std::string const & path);
 	~file();
 	
 	file (file const &) = delete;
@@ -31,21 +33,27 @@ struct file {
 	
 	file & operator = (file const &) = delete;
 	file & operator = (file &&);
-	
-	void close();
-	
-	int get_FD() const { return fd; }
-	status get_status() const { return status_; }
+
+	int get_FD() const;
+	type get_type() const { return type_; }
 	std::string const & get_MIME() const { return mime_type; }
-	size_t get_size() const { return length; }
+	size_t get_size() const;
+	time::point get_last_modified() const;
+	std::vector<directory_listing> get_files() const;
 	
 private:
 	
-	int fd = -1;
-	status status_ = status::invalid;
-	struct timespec last_modified;
+	void * internal_data = nullptr;
+	type type_ = type::invalid;
 	std::string mime_type = "application/octet-stream";
-	size_t length = 0;
 };
+
+struct directory_listing {
+	std::string name;
+	file::type type_;
+	
+	shared_file get_file() { return file::open(name); }
+};
+
 
 }
