@@ -63,6 +63,8 @@ blueshift::http::status_code blueshift::http::request_header::parse_from(std::ve
 	for(i = ib; i != data.end() && *i != ' '; i++) {}
 	if (i == data.end()) return status_code::bad_request;
 	path = urldecode({ib, i});
+	strops::trim(path, '/');
+	strops::remove_duplicates(path, '/');
 	if (i++ == data.end()) return status_code::bad_request;
 	ib = i;
 	for(i = ib; i != data.end() && *i != '\r'; i++) {}

@@ -53,6 +53,14 @@ struct directory_listing {
 	file::type type_;
 	
 	shared_file get_file() { return file::open(name); }
+	
+	struct natsortcmp_s {
+		bool operator() (directory_listing const & a, directory_listing const & b) {
+			if (a.type_ < b.type_) return false;
+			if (a.type_ > b.type_) return true;
+			return strops::natcmp<std::string::const_iterator>(a.name.begin(), a.name.end(), b.name.begin(), b.name.end());
+		}
+	};
 };
 
 

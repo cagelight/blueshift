@@ -1,5 +1,6 @@
 #include "module.hh"
 #include "module_helpers.hh"
+#include <algorithm>
 
 void blueshift::module::request_query::set_token(void * token) {
 	processing_token = token;
@@ -83,6 +84,7 @@ bool blueshift::module::serve_static_file(http::request_header const & req, http
 		
 		body += "<div class=\"mc\"><table><th>Type</th><th>Filename</th>";
 		std::vector<blueshift::directory_listing> dls = f->get_files();
+		std::sort(dls.begin(), dls.end(), directory_listing::natsortcmp_s {});
 		for (blueshift::directory_listing const & dl : dls) {
 			body += "<tr><td>";
 			switch (dl.type_) {
