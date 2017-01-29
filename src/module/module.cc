@@ -63,7 +63,7 @@ bool blueshift::module::serve_static_file(http::request_header const & req, http
 	j["test2"] = json::str("TEEEST");
 	j["test3"] = json::ary({ json::num(100200), json::str("LOLWUT") });
 	j["test4"] = json::map();
-	j["test4"]["subtest1"] = json::str("this is not a drill");
+	j["test4"]->map["subtest1"] = json::str("this is not a drill");
 	
 	print(j.serialize());
 	

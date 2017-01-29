@@ -11,10 +11,10 @@ blueshift::json::object::object(blueshift::json::object::type t) : type_ (t) {
 			new (&string) std::string();
 			break;
 		case type::array:
-			new (&array) std::vector<shared_json_ptr>();
+			new (&array) std::vector<std::shared_ptr<object>>();
 			break;
 		case type::map:
-			new (&map) std::unordered_map<std::string, shared_json_ptr>();
+			new (&map) std::unordered_map<std::string, std::shared_ptr<object>>();
 			break;
 	}
 }
