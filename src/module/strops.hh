@@ -24,7 +24,6 @@ namespace blueshift::strops {
 	
 	static inline bool issymbol1(char c) { return c < 48; }
 	static inline bool isnum(char c) { return c > 47 && c < 58; }
-	static inline int tonum(char c) { return c - 48; }
 	
 	template <typename T> bool natcmp (T const & a_b, T const & a_e, T const & b_b, T const & b_e) {
 		for (T a_i = a_b, b_i = b_b; a_i != a_e && b_i != b_e;) {

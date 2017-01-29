@@ -2,6 +2,8 @@
 #include "module_helpers.hh"
 #include <algorithm>
 
+#include "json.hh"
+
 void blueshift::module::request_query::set_token(void * token) {
 	processing_token = token;
 }
@@ -54,6 +56,16 @@ void blueshift::module::response_query::reset() {
 }
 
 bool blueshift::module::serve_static_file(http::request_header const & req, http::response_header & res, module::response_query & resq, std::string const & root, bool directory_listing) {
+	
+	json j;
+	
+	j["test"] = json::num(42);
+	j["test2"] = json::str("TEEEST");
+	j["test3"] = json::ary({ json::num(100200), json::str("LOLWUT") });
+	j["test4"] = json::map();
+	j["test4"]["subtest1"] = json::str("this is not a drill");
+	
+	print(j.serialize());
 	
 	std::string file_path = root + req.path;
 	
