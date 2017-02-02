@@ -1,12 +1,7 @@
 #include "module.hh"
 #include "module_helpers.hh"
 #include <algorithm>
-
-#include "json.hh"
-
-void blueshift::module::request_query::set_token(void * token) {
-	processing_token = token;
-}
+#include "opper.hh"
 
 void blueshift::module::request_query::refuse_payload() {
 	q = qe::refuse_payload;
@@ -14,7 +9,6 @@ void blueshift::module::request_query::refuse_payload() {
 
 void blueshift::module::request_query::reset() {
 	q = qe::ok;
-	processing_token = nullptr;
 }
 
 void blueshift::module::response_query::set_body(std::vector<char> const & buf, char const * MIMEi) {
@@ -55,25 +49,17 @@ void blueshift::module::response_query::reset() {
 	q = qe::no_body;
 }
 
+static std::vector<std::vector<int>> testv = {{40, 20, 0}, {-20, -40, 500}, {-500, 1000, -1000}};
+
 bool blueshift::module::serve_static_file(http::request_header const & req, http::response_header & res, module::response_query & resq, std::string const & root, bool directory_listing) {
-	
-	json j;
-	
-	j["test"] = json::num(42);
-	j["test2"] = json::str("TEEEST");
-	j["test3"] = json::ary({ json::num(100200), json::str("LOLWUT") });
-	j["test4"] = json::map();
-	j["test4"]->map["subtest1"] = json::str("this is not a drill");
-	
-	print(j.serialize());
-	
-	std::string file_path = root + req.path;
+
+	std::string file_path = root + '/' + req.path;
 	
 	shared_file f = file::open(file_path.c_str());
 	if (f->get_type() == file::type::file) {
 	
-		time::point req_date {req.field("If-None-Match")};
-		time::point file_date = f->get_last_modified();
+		realtime_clock::time_point req_date {req.field("If-None-Match")};
+		realtime_clock::time_point file_date = f->get_last_modified();
 		
 		res.fields["ETag"] = file_date.generate_etag();
 		res.fields["Cache-Control"] = "max-age=1800, public, must-revalidate";
@@ -174,4 +160,9 @@ a:active {
 	}
 	
 	return false;
+}
+
+void blueshift::module::setup_generic_error(http::response_header & res, module::response_query & resq, http::status_code s) {
+	res.code = s;
+	resq.set_body("<h1>" + std::to_string(static_cast<uint16_t>(s)) + " " + std::string(http::text_for_status(s)) + "</h1>", "text/html");
 }

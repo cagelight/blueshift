@@ -1,6 +1,7 @@
 #pragma once
 
 #include "file.hh"
+#include "istring.hh"
 
 #include <unordered_map>
 #include <vector>
@@ -12,6 +13,7 @@ namespace blueshift {
 	namespace http {
 		
 		typedef std::unordered_map<istring, std::string, ihash, std::equal_to<istring>> field_map;
+		typedef std::unordered_map<std::string, std::string> arg_map;
 		
 		static std::string const default_mime {"application/octet-stream"};
 		
@@ -98,6 +100,8 @@ namespace blueshift {
 			std::string method;
 			std::string version;
 			std::string path;
+			
+			arg_map arguments;
 			field_map fields;
 			
 			bool is_multipart = false;

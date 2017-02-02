@@ -32,6 +32,8 @@ namespace blueshift {
 		http::response_header res {};
 		http::multipart_header mul {};
 		
+		void * processing_token = nullptr;
+		
 		module::request_query reqq {};
 		module::response_query resq {};
 		
@@ -45,6 +47,11 @@ namespace blueshift {
 			res_finalize,
 			res_send,
 		} mode = mode_e::req_recv;
+		
+		enum struct process_wait_mode {
+			partial,
+			end
+		} pwm;
 		
 		enum struct multipart_mode {
 			begin,

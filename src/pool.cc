@@ -58,6 +58,8 @@ void thread_run() {
 			lilock.lock();
 			for (auto & li : lis) {
 				
+				if (li.second.interface.pulse) li.second.interface.pulse();
+				
 				auto c = li.second.lisock->accept();
 				if (!c) continue;
 				
@@ -118,8 +120,9 @@ void blueshift::pool::term() noexcept {
 	}
 	pool_workers.clear();
 	
-	for (auto & li : lis) {
+	for (auto const & li : lis) {
 		delete li.second.lisock;
+		if (li.second.interface.interface_term) li.second.interface.interface_term();
 	}
 	lis.clear();
 	
@@ -136,17 +139,19 @@ void blueshift::pool::term() noexcept {
 #include "module.hh"
 
 void blueshift::pool::start_server(uint16_t port, module::interface h) {
+	if (h.interface_init) h.interface_init();
 	lilock.lock();
 	lis[port] = { new blueshift::listener {port}, h };
 	lilock.unlock();
 }
 
-void blueshift::pool::stop_server(uint16_t port) { // TODO -- freeze thread pool and terminate all connections belonging to that server
+void blueshift::pool::stop_server(uint16_t port) {
 	lilock.lock();
-	auto i = lis.find(port);
+	auto const & i = lis.find(port);
 	if (i != lis.end()) {
 		delete i->second.lisock;
-		lis.erase(port);
+		if (i->second.interface.interface_term) i->second.interface.interface_term();
+		lis.erase(i);
 	}
 	lilock.unlock();
 }

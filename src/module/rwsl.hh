@@ -64,7 +64,7 @@ struct rwslck { // read/write spinlock
 	}
 	
 private:
-	std::atomic_int_fast64_t readers {0};
+	std::atomic_int_fast8_t readers {0};
 	std::atomic_flag accessor {false};
 	std::atomic_flag write_sem {false};
 };

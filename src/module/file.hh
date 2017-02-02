@@ -1,6 +1,7 @@
 #pragma once
 #include "com.hh"
 #include "time.hh"
+#include "strops.hh"
 
 #include <vector>
 #include <experimental/string_view> // TODO -- string_view was accepted into C++17, but was not available at the time of writing, switch when available
@@ -38,7 +39,7 @@ struct file {
 	type get_type() const { return type_; }
 	std::string const & get_MIME() const { return mime_type; }
 	size_t get_size() const;
-	time::point get_last_modified() const;
+	realtime_clock::time_point get_last_modified() const;
 	std::vector<directory_listing> get_files() const;
 	
 private:

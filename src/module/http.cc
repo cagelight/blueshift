@@ -46,6 +46,7 @@ void blueshift::http::request_header::clear() {
 	method.clear();
 	version.clear();
 	path.clear();
+	arguments.clear();
 	fields.clear();
 	is_multipart = false;
 	multipart_type.clear();
@@ -62,7 +63,20 @@ blueshift::http::status_code blueshift::http::request_header::parse_from(std::ve
 	ib = i;
 	for(i = ib; i != data.end() && *i != ' '; i++) {}
 	if (i == data.end()) return status_code::bad_request;
+	
 	path = urldecode({ib, i});
+	std::vector<std::string> path_split = strops::separate(path, std::string{"?"}, 1);
+	path = path_split[0];
+	if (path_split.size() > 1) {
+		std::vector<std::string> args = strops::separate(path_split[1], std::string{"&"});
+		for(std::vector<std::string>::const_iterator iter = args.begin(); iter != args.end(); iter++) {
+			std::vector<std::string> pair = strops::separate(*iter, std::string{"="}, 1);
+			if (pair.size() > 1) {
+				arguments[pair[0]] = pair[1];
+			}
+		}
+	}
+	
 	strops::trim(path, '/');
 	strops::remove_duplicates(path, '/');
 	if (i++ == data.end()) return status_code::bad_request;

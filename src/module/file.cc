@@ -83,7 +83,7 @@ size_t blueshift::file::get_size() const {
 	return fdata->finfo.st_size;
 }
 
-blueshift::time::point blueshift::file::get_last_modified() const {
+blueshift::realtime_clock::time_point blueshift::file::get_last_modified() const {
 	return {fdata->finfo.st_mtim};
 }
 

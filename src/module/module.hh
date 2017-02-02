@@ -2,12 +2,12 @@
 
 #include "http.hh"
 #include "file.hh"
+#include "time.hh"
 
 namespace blueshift::module {
 	
 	struct request_query {
 		
-		void set_token(void * token);
 		void refuse_payload();
 		void use_proxy_resolve(char const * host, char const * service);
 		void use_proxy_direct(char const * ip_addr, uint16_t port);
@@ -19,7 +19,6 @@ namespace blueshift::module {
 			ok,
 			refuse_payload,
 		} q = qe::ok;
-		void * processing_token;
 	};
 	
 	struct response_query {
@@ -49,11 +48,23 @@ namespace blueshift::module {
 	};
 
 	struct interface {
-		mss (*query) (http::request_header const & req, request_query & reqq);
+		mss (*query) (void * * processing_token, http::request_header const & req, request_query & reqq);
+		
+		void (*process_begin) (void * token, http::request_header const & req);
 		mss (*process) (void * token, http::request_header const & req, std::vector<char> const & buffer_data);
+		void (*process_end) (void * token, http::request_header const & req);
+		
+		void (*process_multipart_begin) (void * token, http::request_header const & req, http::multipart_header const & mh);
 		mss (*process_multipart) (void * token, http::request_header const & req, http::multipart_header const & mh, std::vector<char> const & multipart_data);
+		void (*process_multipart_end) (void * token, http::request_header const & req, http::multipart_header const & mh);
+		
 		mss (*finalize_response) (void * token, http::request_header const & req, http::response_header & res, response_query & resq);
+		
 		void (*cleanup) (void * token);
+		
+		void (*pulse) (); // OPTIONAL
+		void (*interface_init) (); // OPTIONAL
+		void (*interface_term) (); // OPTIONAL
 	};
 	
 	struct import {
@@ -64,3 +75,4 @@ namespace blueshift::module {
 }
 
 #define BLUESHIFT_MODULE_INIT_FUNC extern "C" __attribute__((visibility("default"))) void _blueshift_module_init ( blueshift::module::import const * imp )
+#define BLUESHIFT_MODULE_TERM_FUNC extern "C" __attribute__((visibility("default"))) void _blueshift_module_term ( )  // OPTIONAL
