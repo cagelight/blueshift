@@ -51,9 +51,9 @@ void blueshift::module::response_query::reset() {
 
 static std::vector<std::vector<int>> testv = {{40, 20, 0}, {-20, -40, 500}, {-500, 1000, -1000}};
 
-bool blueshift::module::serve_static_file(http::request_header const & req, http::response_header & res, module::response_query & resq, std::string const & root, bool directory_listing) {
+bool blueshift::module::serve_static_file(http::request_header const & req, http::response_header & res, module::response_query & resq, std::string path_root, std::string const & path, std::string const & file_root, bool directory_listing) {
 
-	std::string file_path = root + '/' + req.path;
+	std::string file_path = file_root + '/' + path ;
 	
 	shared_file f = file::open(file_path.c_str());
 	if (f->get_type() == file::type::file) {
@@ -76,7 +76,7 @@ bool blueshift::module::serve_static_file(http::request_header const & req, http
 		
 		std::string body { "<head><meta charset=\"UTF-8\"><link rel=\"stylesheet\" type=\"text/css\" href=\"/__bluedlcss\"></head><body>" };
 		
-		std::string dlstr = "/" + req.path + "/";
+		std::string dlstr = "/" + path_root + "/" + path + "/";
 		strops::remove_duplicates(dlstr, '/');
 		body += "<h1>Directory Listing for " + dlstr + "</h1>";
 		
@@ -96,7 +96,7 @@ bool blueshift::module::serve_static_file(http::request_header const & req, http
 					body += "U</td><td>";
 					break;
 			}
-			std::string p = "/" + req.path + "/" + dl.name;
+			std::string p = "/" + path_root + "/" + path + "/" + dl.name;
 			strops::remove_duplicates(p, '/');
 			body += "<a href=\"" + p + "\">" + dl.name + "</a>";
 			body += "</td></tr>";
@@ -108,13 +108,10 @@ bool blueshift::module::serve_static_file(http::request_header const & req, http
 		resq.set_body(std::move(body), "text/html");
 		return true;
 		
-	} else if (directory_listing) {
+	} else if (path == "__bluedlcss") {
 		
-		std::string csst = req.path;
-		strops::trim(csst, '/');
-		if (csst == "__bluedlcss") {
-			res.fields["Cache-Control"] = "max-age=2592000, public, immutable";
-			std::string bdlcss {
+		res.fields["Cache-Control"] = "max-age=2592000, public, immutable";
+		std::string bdlcss {
 R"BLUEDLCSS(
 
 body {
@@ -153,10 +150,9 @@ a:active {
 }
 
 )BLUEDLCSS"
-			};
-			resq.set_body(bdlcss, "text/css");
-			return true;
-		}
+		};
+		resq.set_body(bdlcss, "text/css");
+		return true;
 	}
 	
 	return false;

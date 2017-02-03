@@ -9,8 +9,6 @@ namespace blueshift::module {
 	struct request_query {
 		
 		void refuse_payload();
-		void use_proxy_resolve(char const * host, char const * service);
-		void use_proxy_direct(char const * ip_addr, uint16_t port);
 		void reset();
 		
 		// ================

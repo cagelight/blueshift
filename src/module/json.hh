@@ -33,19 +33,21 @@ struct json {
 		std::shared_ptr<object> & operator [] (std::string const & i) { return map [i]; }
 	};
 	
-	static inline std::shared_ptr<object> num ( long num = 0 ) { std::shared_ptr<object> r { new object {object::type::number} }; r->number = num; return r; }
-	static inline std::shared_ptr<object> str ( std::string const & str = "" ) { std::shared_ptr<object> r { new object {object::type::string} }; r->string = str; return r; }
-	static inline std::shared_ptr<object> ary ( std::initializer_list<std::shared_ptr<object>> init = {} ) { std::shared_ptr<object> r { new object {object::type::array} }; r->array = init; return r; }
-	static inline std::shared_ptr<object> map () { return std::shared_ptr<object> { new object {object::type::map} }; }
+	typedef std::shared_ptr<object> so;
+	
+	static inline so num ( long num = 0 ) { so r { new object {object::type::number} }; r->number = num; return r; }
+	static inline so str ( std::string const & str = "" ) { so r { new object {object::type::string} }; r->string = str; return r; }
+	static inline so ary ( std::initializer_list<so> init = {} ) { so r { new object {object::type::array} }; r->array = init; return r; }
+	static inline so map () { return so { new object {object::type::map} }; }
 	
 	json() = default;
 	~json() = default;
 	
-	object root {object::type::map};
+	so root;
 	
 	std::string serialize();
 	
-	std::shared_ptr<object> & operator [] (std::string const & i) { return root.map [i]; }
+	so & operator [] (std::string const & i) { return root->map [i]; }
 };
 
 }

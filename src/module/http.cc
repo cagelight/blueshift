@@ -27,10 +27,18 @@ char const * blueshift::http::text_for_status(status_code stat) {
 			return "Continue";
 		case status_code::ok:
 			return "OK";
+		case status_code::created:
+			return "Created";
+		case status_code::see_other:
+			return "See Other";
 		case status_code::not_modified:
 			return "Not Modified";
 		case status_code::not_found:
 			return "Not Found";
+		case status_code::method_not_allowed:
+			return "Method Not Allowed";
+		case status_code::conflict:
+			return "Conflict";
 		case status_code::im_a_teapot:
 			return "I'm a teapot";
 		case status_code::internal_server_error:

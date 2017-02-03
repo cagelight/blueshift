@@ -30,6 +30,7 @@ namespace blueshift::strops {
 	
 	template <typename T, typename V = std::vector<T>, typename Ti = typename T::const_iterator> V separate (Ti const & a_b, Ti const & a_e, Ti const & b_b, Ti const & b_e, size_t num_sep = SIZE_MAX) {
 		V r {};
+		if (a_b == a_e || b_b == b_e) return r;
 		size_t cur_sep = 0;
 		size_t d = std::distance(b_b, b_e);
 		Ti i_b = a_b, i_e = a_b + d, i_l = i_b;

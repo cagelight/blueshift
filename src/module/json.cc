@@ -73,5 +73,6 @@ std::string blueshift::json::object::serialize() {
 
 
 std::string blueshift::json::serialize() {
-	return root.serialize();
+	if (!root) return "{}";
+	return root->serialize();
 }

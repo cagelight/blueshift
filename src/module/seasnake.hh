@@ -42,7 +42,6 @@ namespace blueshift::seasnake {
 			root.serialize(ss);
 		}
 		void load (std::string const & path) {
-			root.clear();
 			deserializer ds {path};
 			byte hs [4];
 			ds.read(hs, 4);
@@ -60,6 +59,7 @@ namespace blueshift::seasnake {
 		operator T & () { return value; }
 		operator T const & () const { return value; }
 		inline sstype_scalar<T> & operator = (T const & other) { value = other; return *this; }
+		inline sstype_scalar<T> & operator = (sstype_scalar<T> const & other) { value = other.value; return *this; }
 		inline bool operator == (T const & other) const { return other == value; }
 		inline bool operator == (sstype_scalar<T> const & other) const { return other.value == value; }
 		void serialize (serializer & s) const {
@@ -79,6 +79,7 @@ namespace blueshift::seasnake {
 		operator T & () { return value; }
 		operator T const & () const { return value; }
 		inline sstype_pod<T> & operator = (T const & other) { value = other; return *this; }
+		inline sstype_pod<T> & operator = (sstype_pod<T> const & other) { value = other.value; return *this; }
 		inline bool operator == (T const & other) const { return other == value; }
 		inline bool operator == (sstype_pod<T> const & other) const { return other.value == value; }
 		void serialize (serializer & s) const {
@@ -98,12 +99,19 @@ namespace blueshift::seasnake {
 		operator T & () { return value; }
 		operator T const & () const { return value; }
 		inline ss_string_t<T> & operator = (T const & other) { value = other; return *this; }
+		inline ss_string_t<T> & operator = (ss_string_t<T> const & other) { value = other.value; return *this; }
 		inline bool operator == (T const & other) const { return other == value; }
 		inline bool operator == (ss_string_t<T> const & other) const { return other.value == value; }
 		void serialize (serializer & s) const {
 			S sz = value.size();
 			s.write(reinterpret_cast<byte const *>(&sz), sizeof(sz));
 			s.write(reinterpret_cast<byte const *>(value.data()), sz);
+		}
+		void deserialize (deserializer & ds) {
+			S sz;
+			ds.read(reinterpret_cast<byte *>(&sz), sizeof(S));
+			value.resize(sz);
+			ds.read(reinterpret_cast<byte *>(&value[0]), sz);
 		}
 	};
 	
@@ -116,6 +124,7 @@ namespace blueshift::seasnake {
 		operator T & () { return value; }
 		operator T const & () const { return value; }
 		inline sstype_array<T> & operator = (T const & other) { value = other; return *this; }
+		inline sstype_array<T> & operator = (sstype_array<T> const & other) { value = other.value; return *this; }
 		inline bool operator == (T const & other) const { return other == value; }
 		inline bool operator == (sstype_array<T> const & other) const { return other.value == value; }
 		void serialize (serializer & s) const {
@@ -123,6 +132,49 @@ namespace blueshift::seasnake {
 			s.write(reinterpret_cast<byte const *>(&sz), sizeof(sz));
 			for (auto const & i : value) {
 				i.serialize(s);
+			}
+		}
+		void deserialize (deserializer & ds) {
+			value.clear();
+			S sz;
+			ds.read(reinterpret_cast<byte *>(&sz), sizeof(S));
+			value.reserve(sz);
+			for (S i = 0; i < sz; i++) {
+				typename value_type::value_type v {};
+				v.deserialize(ds);
+				value.push_back(v);
+			}
+		}
+	};
+	
+	template <typename T, typename S = default_size_t> struct sstype_set {
+		static_assert(std::is_integral<S>(), "sstype_set requires an integral type as the template second parameter (size)");
+		typedef T value_type;
+		T value;
+		sstype_set() : value{} {}
+		sstype_set(T const & v) : value(v) {}
+		operator T & () { return value; }
+		operator T const & () const { return value; }
+		inline sstype_set<T> & operator = (T const & other) { value = other; return *this; }
+		inline sstype_set<T> & operator = (sstype_set<T> const & other) { value = other.value; return *this; }
+		inline bool operator == (T const & other) const { return other == value; }
+		inline bool operator == (sstype_set<T> const & other) const { return other.value == value; }
+		void serialize (serializer & s) const {
+			S sz = value.size();
+			s.write(reinterpret_cast<byte const *>(&sz), sizeof(sz));
+			for (auto const & i : value) {
+				i.serialize(s);
+			}
+		}
+		void deserialize (deserializer & ds) {
+			value.clear();
+			S sz;
+			ds.read(reinterpret_cast<byte *>(&sz), sizeof(S));
+			value.reserve(sz);
+			for (S i = 0; i < sz; i++) {
+				typename value_type::value_type v {};
+				v.deserialize(ds);
+				value.insert(v);
 			}
 		}
 	};
@@ -136,14 +188,31 @@ namespace blueshift::seasnake {
 		operator T & () { return value; }
 		operator T const & () const { return value; }
 		inline sstype_map<T> & operator = (T const & other) { value = other; return *this; }
+		inline sstype_map<T> & operator = (sstype_map<T> const & other) { value = other.value; return *this; }
 		inline bool operator == (T const & other) const { return other == value; }
 		inline bool operator == (sstype_map<T> const & other) const { return other.value == value; }
+		typename T::mapped_type & operator [] (typename T::key_type i) {
+			return value[i];
+		}
 		void serialize (serializer & s) const {
 			S sz = value.size();
 			s.write(reinterpret_cast<byte const *>(&sz), sizeof(sz));
 			for (auto const & i : value) {
 				i.first.serialize(s);
 				i.second.serialize(s);
+			}
+		}
+		void deserialize (deserializer & ds) {
+			value.clear();
+			S sz;
+			ds.read(reinterpret_cast<byte *>(&sz), sizeof(S));
+			value.reserve(sz);
+			for (S i = 0; i < sz; i++) {
+				typename value_type::key_type k {};
+				typename value_type::mapped_type v {};
+				k.deserialize(ds);
+				v.deserialize(ds);
+				value[k] = v;
 			}
 		}
 	};
@@ -155,7 +224,7 @@ namespace blueshift::seasnake {
 	};
 	
 	template <typename T, typename S = default_size_t> using ss_vector_t = sstype_array<std::vector<T>, S>;
-	template <typename T, typename S = default_size_t, typename H = ss_hash<T>> using ss_uset_t = sstype_array<std::unordered_set<T, H>, S>;
+	template <typename T, typename S = default_size_t, typename H = ss_hash<T>> using ss_uset_t = sstype_set<std::unordered_set<T, H>, S>;
 	
 	template <typename T1, typename T2, typename S = default_size_t, typename H = ss_hash<T1>> using ss_umap_t = sstype_map<std::unordered_map<T1, T2, H>, S>;
 	
