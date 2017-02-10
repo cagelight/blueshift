@@ -49,9 +49,9 @@ void blueshift::module::response_query::reset() {
 	q = qe::no_body;
 }
 
-static std::vector<std::vector<int>> testv = {{40, 20, 0}, {-20, -40, 500}, {-500, 1000, -1000}};
+#include "seasnake.hh"
 
-bool blueshift::module::serve_static_file(http::request_header const & req, http::response_header & res, module::response_query & resq, std::string path_root, std::string const & path, std::string const & file_root, bool directory_listing) {
+bool blueshift::module::serve_static_file(http::request_header const & req, http::response_header & res, module::response_query & resq, std::string path_root, std::string const & path, std::string const & file_root, bool directory_listing, bool htmlcheck) {
 
 	std::string file_path = file_root + '/' + path ;
 	
@@ -72,7 +72,11 @@ bool blueshift::module::serve_static_file(http::request_header const & req, http
 		
 		return true;
 	
-	} else if (f->get_type() == file::type::directory && directory_listing) {
+	} else if (f->get_type() == file::type::directory) {
+		
+		if (htmlcheck && serve_static_file(req, res, resq, path_root, path + "/index.html", file_root, false, false)) return true;
+		
+		if (!directory_listing) return false;
 		
 		std::string body { "<head><meta charset=\"UTF-8\"><link rel=\"stylesheet\" type=\"text/css\" href=\"/__bluedlcss\"></head><body>" };
 		
@@ -153,6 +157,9 @@ a:active {
 		};
 		resq.set_body(bdlcss, "text/css");
 		return true;
+		
+	} else { // file doesn't exist
+		if (htmlcheck && serve_static_file(req, res, resq, path_root, path + ".html", file_root, false, false)) return true;
 	}
 	
 	return false;

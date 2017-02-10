@@ -19,6 +19,17 @@ namespace blueshift::strops {
 		}
 	}
 	
+	template <typename T, typename TT = decltype(T::value_type)> void remove_all(T & v, TT tv) {
+		if (!v.size()) return;
+		for (typename T::iterator i = v.begin() + 1; i != v.end();) {
+			if (*i == tv) {
+				i = v.erase(i);
+				continue;
+			}
+			i++;
+		}
+	}
+	
 	template <typename T> bool itereq (T const & a_b, T const & a_e, T const & b_b, T const & b_e) {
 		T a_i, b_i;
 		for (a_i = a_b, b_i = b_b; a_i != a_e && b_i != b_e; a_i++, b_i++) {

@@ -41,6 +41,8 @@ char const * blueshift::http::text_for_status(status_code stat) {
 			return "Conflict";
 		case status_code::im_a_teapot:
 			return "I'm a teapot";
+		case status_code::unprocessable_entity:
+			return "Unprocessable Entity";
 		case status_code::internal_server_error:
 			return "Internal Server Error";
 		case status_code::bad_gateway:

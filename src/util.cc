@@ -150,18 +150,20 @@ void blueshift::stream_writer::set_header(std::vector<char> && buf) {
 
 void blueshift::stream_writer::set(shared_file f) {
 	if (mode == mode_e::data) srcthrow("attempted to set file in buffer mode");
+	file_size = f->get_size();
+	if (!file_size) return;
 	mode = mode_e::file;
 	file = f;
 	file_offs = 0;
-	file_size = file->get_size();
 }
 
 void blueshift::stream_writer::set(shared_file f, off_t starting_offs, size_t ending_offs) {
 	if (mode == mode_e::data) srcthrow("attempted to set file in buffer mode");
+	file_size = ending_offs;
+	if (!file_size) return;
 	mode = mode_e::file;
 	file = f;
 	file_offs = starting_offs;
-	file_size = ending_offs;
 }
 
 void blueshift::stream_writer::set(std::vector<char> && buf) {
