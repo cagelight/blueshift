@@ -118,6 +118,12 @@ namespace blueshift {
 				return empty_str;
 			}
 			
+			inline std::string const & argument(char const * f) const {
+				auto i = arguments.find(f);
+				if (i != arguments.end()) return i->second;
+				return empty_str;
+			}
+			
 			inline size_t content_length() const {
 				auto cli = fields.find("Content-Length");
 				if (cli != fields.end()) return strtoul(cli->second.c_str(), nullptr, 10);

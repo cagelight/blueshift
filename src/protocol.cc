@@ -2,13 +2,13 @@
 
 #define unexpected_terminate { srcprintf_error("unexpected program execution caused a terminate to be hit"); return status::terminate; }
 
-blueshift::protocol::protocol(std::unique_ptr<connection> && conin, module::interface & mi) : mi{mi}, con {std::move(conin)}, sr {*con}, sw {*con} {
+blueshift::protocol::protocol(std::unique_ptr<connection> && conin, module::interface * mi) : mi{mi}, con {std::move(conin)}, sr {*con}, sw {*con} {
 	
 }
 
 blueshift::protocol::~protocol() {
 	if (processing_token) { 
-		mi.cleanup(processing_token);
+		mi->cleanup(processing_token);
 	}
 }
 
@@ -113,7 +113,7 @@ blueshift::protocol::status blueshift::protocol::do_req_recv() {
 }
 
 blueshift::protocol::status blueshift::protocol::do_req_query() {
-	auto e = mi.query(&processing_token, req, reqq);
+	auto e = mi->query(&processing_token, req, reqq);
 	if (e == module::mss::waiting) return status::idle;
 	
 	switch (reqq.q) {
@@ -153,13 +153,13 @@ blueshift::protocol::status blueshift::protocol::do_req_query() {
 blueshift::protocol::status blueshift::protocol::do_res_process() {
 	
 	if (general_buffer.size()) {
-		if (mi.process(processing_token, req, general_buffer) == module::mss::waiting) return status::idle;
+		if (mi->process(processing_token, req, general_buffer) == module::mss::waiting) return status::idle;
 		general_buffer.clear();
 		switch (pwm) {
 			case process_wait_mode::partial:
 				break;
 			case process_wait_mode::end:
-				mi.process_end(processing_token, req);
+				mi->process_end(processing_token, req);
 				setup_res_finalize();
 				return status::progress;
 		}
@@ -170,15 +170,15 @@ blueshift::protocol::status blueshift::protocol::do_res_process() {
 			case stream_reader::status::counter_hit: {
 				general_buffer = sr.get_counted_data();
 				pwm = process_wait_mode::end;
-				if (mi.process(processing_token, req, general_buffer) == module::mss::waiting) return status::idle;
-				mi.process_end(processing_token, req);
+				if (mi->process(processing_token, req, general_buffer) == module::mss::waiting) return status::idle;
+				mi->process_end(processing_token, req);
 				setup_res_finalize();
 				return status::progress;
 			}
 			case stream_reader::status::some_read: {
 				general_buffer = sr.get_all_data();
 				pwm = process_wait_mode::partial;
-				if (mi.process(processing_token, req, general_buffer) == module::mss::waiting) return status::idle;
+				if (mi->process(processing_token, req, general_buffer) == module::mss::waiting) return status::idle;
 				return status::progress;
 			}
 			case stream_reader::status::none_read:
@@ -249,7 +249,7 @@ blueshift::protocol::status blueshift::protocol::do_res_multipart() {
 						delim += req.multipart_delimiter;
 						sr.set_delimiter(delim);
 						mmode = multipart_mode::body;
-						mi.process_multipart_begin(processing_token, req, mul);
+						mi->process_multipart_begin(processing_token, req, mul);
 						return status::progress;
 					} else {
 						res.code = http::status_code::bad_request;
@@ -271,7 +271,7 @@ blueshift::protocol::status blueshift::protocol::do_res_multipart() {
 		}
 		case multipart_mode::body: {
 			if (general_buffer.size()) {
-				if (mi.process_multipart(processing_token, req, mul, general_buffer ) == module::mss::waiting) return status::idle;
+				if (mi->process_multipart(processing_token, req, mul, general_buffer ) == module::mss::waiting) return status::idle;
 				general_buffer.clear();
 				switch (mwm) {
 					case multipart_wait_mode::partial:
@@ -293,7 +293,7 @@ blueshift::protocol::status blueshift::protocol::do_res_multipart() {
 					else if (p[0] == '\r' && p[1] == '\n') {
 						sr.get_data(2); // remove post-delimiters
 						mwm = multipart_wait_mode::next;
-						if (mi.process_multipart(processing_token, req, mul, general_buffer ) == module::mss::waiting) return status::idle;
+						if (mi->process_multipart(processing_token, req, mul, general_buffer ) == module::mss::waiting) return status::idle;
 						general_buffer.clear();
 						goto configure_next;
 					}
@@ -301,7 +301,7 @@ blueshift::protocol::status blueshift::protocol::do_res_multipart() {
 					else if (!memcmp(p.data(), "--\r\n", 4)) {
 						sr.get_data(4); // remove post-delimiters
 						mwm = multipart_wait_mode::end;
-						if (mi.process_multipart(processing_token, req, mul, general_buffer ) == module::mss::waiting) return status::idle;
+						if (mi->process_multipart(processing_token, req, mul, general_buffer ) == module::mss::waiting) return status::idle;
 						general_buffer.clear();
 						goto configure_done;
 					} else {
@@ -325,22 +325,22 @@ blueshift::protocol::status blueshift::protocol::do_res_multipart() {
 	unexpected_terminate;
 	
 	configure_next:
-	mi.process_multipart_end(processing_token, req, mul);
+	mi->process_multipart_end(processing_token, req, mul);
 	sr.set_delimiter("\r\n\r\n");
 	mmode = multipart_mode::header;
 	return status::progress;
 						
 	configure_done:
-	mi.process_multipart_end(processing_token, req, mul);
+	mi->process_multipart_end(processing_token, req, mul);
 	setup_res_finalize();
 	return status::progress;
 }
 
 blueshift::protocol::status blueshift::protocol::do_res_finalize() {
 	
-	if (mi.finalize_response(processing_token, req, res, resq) == module::mss::waiting) return status::idle;
+	if (mi->finalize_response(processing_token, req, res, resq) == module::mss::waiting) return status::idle;
 	if (processing_token) { 
-		mi.cleanup(processing_token);
+		mi->cleanup(processing_token);
 		processing_token = nullptr;
 	}
 	
@@ -451,7 +451,7 @@ void blueshift::protocol::setup_req_query() {
 	general_buffer.clear();
 	reqq.reset();
 	if (processing_token) { 
-		mi.cleanup(processing_token);
+		mi->cleanup(processing_token);
 		processing_token = nullptr;
 	}
 }
@@ -460,7 +460,7 @@ void blueshift::protocol::setup_res_process() {
 	mode = mode_e::res_process;
 	general_buffer.clear();
 	pwm = process_wait_mode::partial;
-	mi.process_begin(processing_token, req);
+	mi->process_begin(processing_token, req);
 }
 
 void blueshift::protocol::setup_res_multipart() {

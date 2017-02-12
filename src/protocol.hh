@@ -17,14 +17,14 @@ namespace blueshift {
 			terminate,
 		};
 		
-		protocol(std::unique_ptr<connection> && conin, module::interface & mi);
+		protocol(std::unique_ptr<connection> && conin, module::interface * mi);
 		~protocol();
 		
 		status update();
 		
 	private:
 		
-		module::interface & mi;
+		module::interface * mi;
 		
 		bool connection_close = false;
 		

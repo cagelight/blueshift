@@ -31,26 +31,29 @@ struct json_data {
 		inline so () = default;
 		inline so (so const & other) = default;
 		inline so (type t) : ptr(new json_data{t}) {}
-		inline so (json_integer_t i) : ptr(new json_data{type::nui}) { ptr->nui = i; }
-		inline so (json_float_t i) : ptr(new json_data{type::nuf}) { ptr->nuf = i; }
+		template <typename T, typename std::enable_if<std::is_integral<T>::value, int>::type = 0> inline so (T t) : ptr(new json_data{type::nui}) {ptr->nui = t;}
+		template <typename T, typename std::enable_if<std::is_floating_point<T>::value, int>::type = 0> inline so (T t) : ptr(new json_data{type::nuf}) {ptr->nuf = t;}
 		inline so (std::string const & str) : ptr(new json_data{type::str}) { ptr->str = str; }
 		inline so (std::string && str) : ptr(new json_data{type::str}) { ptr->str = std::move(str); }
 		inline so (char const * str) : ptr(new json_data{type::str}) { ptr->str = str; }
 		inline ~so() = default;
-		inline so & operator = (json_integer_t i) {
+		
+		template <typename T, typename std::enable_if<std::is_integral<T>::value, int>::type = 0> inline so & operator = (T t) {
 			if (!ptr || ptr->type_ != type::nui) {
 				ptr.reset(new json_data {type::nui});
 			}
-			ptr->nui = i;
+			ptr->nui = t;
 			return *this;
 		}
-		inline so & operator = (json_float_t i) {
+		
+		template <typename T, typename std::enable_if<std::is_floating_point<T>::value, int>::type = 0> inline so & operator = (T t) {
 			if (!ptr || ptr->type_ != type::nuf) {
 				ptr.reset(new json_data {type::nuf});
 			}
-			ptr->nuf = i;
+			ptr->nuf = t;
 			return *this;
 		}
+		
 		inline so & operator = (std::string const & str) {
 			if (!ptr || ptr->type_ != type::str) {
 				ptr.reset(new json_data {type::str});

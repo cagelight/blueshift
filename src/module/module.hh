@@ -46,27 +46,33 @@ namespace blueshift::module {
 	};
 
 	struct interface {
-		mss (*query) (void * * processing_token, http::request_header const & req, request_query & reqq);
 		
-		void (*process_begin) (void * token, http::request_header const & req);
-		mss (*process) (void * token, http::request_header const & req, std::vector<char> const & buffer_data);
-		void (*process_end) (void * token, http::request_header const & req);
+		virtual ~interface() = default;
 		
-		void (*process_multipart_begin) (void * token, http::request_header const & req, http::multipart_header const & mh);
-		mss (*process_multipart) (void * token, http::request_header const & req, http::multipart_header const & mh, std::vector<char> const & multipart_data);
-		void (*process_multipart_end) (void * token, http::request_header const & req, http::multipart_header const & mh);
+		virtual mss query (void * * processing_token, http::request_header const & req, request_query & reqq) = 0;
 		
-		mss (*finalize_response) (void * token, http::request_header const & req, http::response_header & res, response_query & resq);
+		virtual void process_begin (void * token, http::request_header const & req) = 0;
+		virtual mss process (void * token, http::request_header const & req, std::vector<char> const & buffer_data) = 0;
+		virtual void process_end (void * token, http::request_header const & req) = 0;
 		
-		void (*cleanup) (void * token);
+		virtual void process_multipart_begin (void * token, http::request_header const & req, http::multipart_header const & mh) = 0;
+		virtual mss process_multipart (void * token, http::request_header const & req, http::multipart_header const & mh, std::vector<char> const & multipart_data) = 0;
+		virtual void process_multipart_end (void * token, http::request_header const & req, http::multipart_header const & mh) = 0;
 		
-		void (*pulse) (); // OPTIONAL
-		void (*interface_init) (); // OPTIONAL
-		void (*interface_term) (); // OPTIONAL
+		virtual mss finalize_response (void * token, http::request_header const & req, http::response_header & res, response_query & resq) = 0;
+		
+		virtual void cleanup (void * token) = 0;
+		
+		virtual void pulse () {}
+		virtual void interface_init () {}
+		virtual void interface_term () {}
+		
+	protected:
+		interface() = default;
 	};
 	
 	struct import {
-		void (*start_server) (uint16_t, module::interface);
+		void (*start_server) (uint16_t, module::interface *);
 		void (*stop_server) (uint16_t);
 	};
 	

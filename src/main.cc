@@ -62,5 +62,10 @@ int main(int argc, char * * argv) {
 	}
 	blueshift::pool::term();
 	
+	void * mod_term = dlsym(handle, "_blueshift_module_term");
+	if (mod_term) {
+		reinterpret_cast<void (*)()>(mod_term)();
+	}
+	
 	return 0;
 }
