@@ -2,7 +2,7 @@
 
 #define unexpected_terminate { srcprintf_error("unexpected program execution caused a terminate to be hit"); return status::terminate; }
 
-blueshift::protocol::protocol(std::unique_ptr<connection> && conin, module::interface * mi) : mi{mi}, con {std::move(conin)}, sr {*con}, sw {*con} {
+blueshift::protocol::protocol(std::shared_ptr<connection> conin, module::interface * mi) : mi{mi}, con {conin}, sr {*con}, sw {*con} {
 	
 }
 

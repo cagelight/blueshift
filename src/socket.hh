@@ -3,6 +3,8 @@
 #include "com.hh"
 #include <netinet/in.h>
 
+
+
 namespace blueshift {
 	
 	struct socket {
@@ -21,7 +23,7 @@ namespace blueshift {
 		ssize_t write(char const * buf, size_t buf_len);
 		ssize_t sendfile(int fd, off_t * offs, size_t size);
 
-		int get_fd() { return sock.fd; }
+		inline int get_fd() { return sock.fd; }
 		
 	protected:
 		socket sock {};
@@ -31,7 +33,9 @@ namespace blueshift {
 		listener(uint16_t port);
 		~listener();
 		
-		std::unique_ptr<connection> accept();
+		std::shared_ptr<connection> accept();
+		
+		inline int get_fd() { return sock.fd; }
 		
 	protected:
 		socket sock {};

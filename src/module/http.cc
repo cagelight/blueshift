@@ -112,6 +112,17 @@ char const * blueshift::http::text_for_status(status_code stat) {
 	}
 }
 
+std::string blueshift::http::cookie::serialize() const {
+	std::string ser = "Set-Cookie: ";
+	ser += name + '=' + value;
+	if (domain != empty_str) ser += "; Domain=" + domain;
+	if (path != empty_str) ser += "; Path=" + path;
+	if (max_age > 0) ser += "; Max-Age=" + std::to_string(max_age);
+	if (secure) ser += "; Secure";
+	if (httponly) ser += "; HttpOnly";
+	return ser;
+}
+
 void blueshift::http::request_header::clear() {
 	method.clear();
 	version.clear();
@@ -165,7 +176,20 @@ blueshift::http::status_code blueshift::http::request_header::parse_from(std::ve
 		ib = i;
 		for(i = ib; i != data.end() && *i != '\r'; i++) {}
 		if (i == data.end()) return status_code::bad_request;
-		fields[ {fkb, fke} ] = { ib, i };
+		std::string key {fkb, fke};
+		if (key == "Cookie") {
+			std::string cookiestr {ib, i};
+			std::vector<std::string> cookie_v = strops::separate(cookiestr, std::string{";"});
+			for (std::string & c : cookie_v) {
+				std::vector<std::string> kv = strops::separate(c, std::string{"="}, 1);
+				if (kv.size() < 2) continue;
+				strops::trim(kv[0], ' ');
+				strops::trim(kv[1], ' ');
+				cookies[kv[0]] = kv[1];
+			}
+		} else {
+			fields[{fkb, fke}] = { ib, i };
+		}
 		if (i++ == data.end() || *i != '\n' || i++ == data.end()) return status_code::bad_request;
 	}
 	
@@ -246,6 +270,11 @@ std::vector<char> blueshift::http::response_header::serialize() {
 		r.insert(r.end(), i.first.begin(), i.first.end());
 		r.insert(r.end(), ": ", ": " + 2);
 		r.insert(r.end(), i.second.begin(), i.second.end());
+		r.insert(r.end(), "\r\n", "\r\n" + 2);
+	}
+	for (auto const & c : cookies) {
+		auto v = c.serialize();
+		r.insert(r.end(), v.begin(), v.end());
 		r.insert(r.end(), "\r\n", "\r\n" + 2);
 	}
 	r.insert(r.end(), "\r\n", "\r\n" + 2);

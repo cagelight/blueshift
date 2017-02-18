@@ -3,7 +3,6 @@
 #include <module.hh>
 #include <unordered_map>
 #include <set>
-#include <regex>
 #include <memory>
 #include <vector>
 #include <unordered_set>
@@ -13,10 +12,11 @@ namespace blueshift {
 struct route { friend struct router;
 	virtual ~route() = default;
 	void set_request(blueshift::http::request_header const & req) {request = &req;}
-	void adjust_path(std::string const & new_path) {path = new_path;}
+	void adjust_path(std::string const & new_path_head, std::string const & new_path) {path_head = new_path_head, path = new_path;}
 protected:
 	route() = default;
 	blueshift::http::request_header const * request = nullptr;
+	std::string path_head {""};
 	std::string path {""};
 	virtual blueshift::module::mss query(blueshift::module::request_query & reqq) = 0;
 	virtual void process_begin () = 0;
@@ -28,15 +28,20 @@ protected:
 	virtual blueshift::module::mss finalize_response (blueshift::http::response_header & res, blueshift::module::response_query & resq) = 0;
 };
 
-struct basic_route : public route { // NO MULTIPART
+struct basic_route : public route {
 	basic_route() = default;
 	virtual ~basic_route() = default;
 	virtual void respond() = 0;
 protected:
+	struct multipart {
+		http::multipart_header header;
+		std::vector<char> body;
+	};
 	size_t max_content_size = 52428800; // 50 MiB
 	blueshift::http::response_header * response;
 	blueshift::module::response_query * response_query;
 	std::vector<char> body;
+	std::vector<multipart> multiparts;
 	void generic_error(http::status_code code);
 	bool serve_file(std::string const & file_root, bool directory_listing = false, bool htmlcheck = true);
 	bool serve_file(std::string const & path_head, std::string const & path_tail, std::string const & file_root, bool directory_listing = false, bool htmlcheck = true);
@@ -52,10 +57,19 @@ private:
 	virtual blueshift::module::mss finalize_response (blueshift::http::response_header & res, blueshift::module::response_query & resq);
 };
 
+struct static_serve : public basic_route {
+	std::string const & file_root;
+	static_serve(std::string const & fr) : file_root (fr) {}
+	void respond() {
+		if (this->serve_file(file_root)) return;
+		generic_error(http::status_code::not_found);
+	}
+};
+
 struct router : public blueshift::module::interface {
 	
-	router() : interface() {}
-	virtual ~router() = default;
+	router();
+	virtual ~router();
 	blueshift::module::mss query (void * * processing_token, blueshift::http::request_header const & req, blueshift::module::request_query & reqq, std::string override_path);
 	virtual blueshift::module::mss query (void * * processing_token, blueshift::http::request_header const & req, blueshift::module::request_query & reqq) {return query(processing_token, req, reqq, req.path);}
 	virtual void process_begin (void * token, blueshift::http::request_header const & req);
@@ -73,6 +87,14 @@ struct router : public blueshift::module::interface {
 	struct route_endpoint_base {
 		virtual blueshift::route * create() = 0;
 	};
+	struct route_endpoint_static_serve : public route_endpoint_base {
+		std::string file_root;
+		route_endpoint_static_serve(std::string file_root) : file_root(file_root) {}
+		virtual blueshift::route * create() {
+			static_serve * ss = new static_serve(file_root);
+			return ss;
+		}
+	};
 	template <typename T> struct route_endpoint : public route_endpoint_base {
 		virtual blueshift::route * create() {
 			return new T {};
@@ -81,79 +103,53 @@ struct router : public blueshift::module::interface {
 	typedef std::shared_ptr<route_endpoint_base> route_ptr;
 	
 	std::shared_ptr<router> route_route(std::string mount_point) {
-		std::shared_ptr<router> rt {new router};
+		std::shared_ptr<router> rt {new router {}};
 		rt->mount_head = mount_point;
 		subroutes[mount_point] = rt;
 		return rt;
 	}
 	template <typename T> std::shared_ptr<route_endpoint<T>> route_exact(std::string path, std::initializer_list<std::string> methods) {
 		static_assert(std::is_base_of<blueshift::route, T>::value, "T must be derive from route");
+		blueshift::strops::trim(path, '/');
 		std::shared_ptr<route_endpoint<T>> ptr {new route_endpoint<T> {}};
-		for (auto const & i : methods) {
-			route_table[i].exact_matches.insert({path, ptr});
-		}
+		route_exact_insert(path, ptr, methods);
 		return ptr;
 	}
 	template <typename T> std::shared_ptr<route_endpoint<T>> route_root(std::string path_root, std::initializer_list<std::string> methods) {
+		blueshift::strops::trim(path_root, '/');
 		static_assert(std::is_base_of<blueshift::route, T>::value, "T must be derive from route");
 		std::shared_ptr<route_endpoint<T>> ptr {new route_endpoint<T> {}};
-		for (auto const & i : methods) {
-			route_table[i].root_matches.insert({path_root, ptr});
-		}
+		route_root_insert(path_root, ptr, methods);
 		return ptr;
 	}
 	template <typename T> std::shared_ptr<route_endpoint<T>> route_regex(std::string path_regex, std::initializer_list<std::string> methods) {
 		static_assert(std::is_base_of<blueshift::route, T>::value, "T must be derive from route");
 		std::shared_ptr<route_endpoint<T>> ptr {new route_endpoint<T> {}};
-		for (auto const & i : methods) {
-			route_table[i].regex_matches.insert({path_regex, ptr});
-		}
+		route_regex_insert(path_regex, ptr, methods);
 		return ptr;
 	}
 	template <typename T> std::shared_ptr<route_endpoint<T>> route_fallback(std::initializer_list<std::string> methods) {
 		static_assert(std::is_base_of<blueshift::route, T>::value, "T must be derive from route");
 		std::shared_ptr<route_endpoint<T>> ptr {new route_endpoint<T> {}};
-		for (auto const & i : methods) {
-			route_table[i].fallback = ptr;
-		}
+		route_fallback_set(ptr, methods);
 		return ptr;
+	}
+	void route_serve(std::string path_root, std::string file_root) {
+		blueshift::strops::trim(path_root, '/');
+		if (path_root == empty_str) route_fallback_set(std::shared_ptr<route_endpoint_static_serve> {new route_endpoint_static_serve{file_root}}, {"GET"});
+		else route_root_insert(path_root, std::shared_ptr<route_endpoint_static_serve> {new route_endpoint_static_serve{file_root}}, {"GET"});
 	}
 	
 private:
+	
+	void * router_data = nullptr;
 	std::string mount_head {""};
-	struct uri_resolver {
-		struct exact_route {
-			std::string str;
-			route_ptr reb = nullptr;
-			exact_route(std::string str, route_ptr ptr) : str(str), reb(ptr) {}
-			struct hash { uint64_t operator() (exact_route const & rt) const { return std::hash<std::string>{}(rt.str); } };
-			struct comp { bool operator() (exact_route const & A, exact_route const & B) const { return A.str < B.str; } };
-		};
-		struct regex_route {
-			std::string str;
-			std::regex reg;
-			route_ptr reb = nullptr;
-			regex_route(std::string str, route_ptr ptr) : str(str), reg(str, std::regex_constants::icase | std::regex_constants::optimize | std::regex_constants::extended), reb(ptr) {}
-			bool search (std::string const & path) const;
-			struct hash { uint64_t operator() (regex_route const & rt) const { return std::hash<std::string>{}(rt.str); } };
-			struct comp { bool operator() (regex_route const & A, regex_route const & B) const { return A.str < B.str; } };
-		};
-		std::unordered_set<exact_route, exact_route::hash, exact_route::comp> exact_matches {};
-		std::unordered_set<exact_route, exact_route::hash, exact_route::comp> root_matches {};
-		std::unordered_set<regex_route, regex_route::hash, regex_route::comp> regex_matches {};
-		route_ptr fallback = nullptr;
-		route_ptr resolve(std::string const & path) {
-			for (auto const & i : exact_matches)
-				if (path == i.str) return i.reb;
-			for (auto const & i : root_matches)
-				if (path.size() >= i.str.size() && path.substr(0, i.str.size()) == i.str) return i.reb;
-			for (auto const & i : regex_matches)
-				if (i.search(path)) return i.reb;
-			return fallback;
-		}
-	};
 	std::unordered_map<std::string, std::shared_ptr<router>> subroutes {};
-	std::unordered_map<std::string, uri_resolver> route_table {};
+	
+	void route_exact_insert(std::string path, route_ptr rt, std::vector<std::string> const & methods);
+	void route_root_insert(std::string path_root, route_ptr rt, std::vector<std::string> const & methods);
+	void route_regex_insert(std::string path_regex, route_ptr rt, std::vector<std::string> const & methods);
+	void route_fallback_set(route_ptr rt, std::vector<std::string> const & methods);
 };
 
 }

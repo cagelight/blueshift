@@ -49,10 +49,8 @@ void blueshift::module::response_query::reset() {
 	q = qe::no_body;
 }
 
-#include "seasnake.hh"
-
 bool blueshift::module::serve_static_file(http::request_header const & req, http::response_header & res, module::response_query & resq, std::string path_root, std::string const & path, std::string const & file_root, bool directory_listing, bool htmlcheck) {
-
+	
 	std::string file_path = file_root + '/' + path ;
 	
 	shared_file f = file::open(file_path.c_str());

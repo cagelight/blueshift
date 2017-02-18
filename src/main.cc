@@ -57,9 +57,7 @@ int main(int argc, char * * argv) {
 		return -1;
 	}
 	
-	while (blueshift::run_sem) {
-		std::this_thread::sleep_for(std::chrono::milliseconds(100));
-	}
+	blueshift::pool::enter_epoll_loop();
 	blueshift::pool::term();
 	
 	void * mod_term = dlsym(handle, "_blueshift_module_term");

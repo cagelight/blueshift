@@ -12,10 +12,11 @@
 #include <netdb.h>
 #include <fcntl.h>
 
+#include <openssl/bio.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
 static constexpr int enable = 1;
-
-blueshift::connection::connection(socket & sockin) : sock(sockin) {}
 
 blueshift::listener::listener(uint16_t port) {
 	
@@ -39,14 +40,15 @@ blueshift::listener::~listener() {
 	}
 }
 
-std::unique_ptr<blueshift::connection> blueshift::listener::accept() {
+std::shared_ptr<blueshift::connection> blueshift::listener::accept() {
 	socket tsock;
 	socklen_t slen = sizeof(tsock.addr);
 	tsock.fd = accept4(sock.fd, reinterpret_cast<struct sockaddr *>(&tsock.addr), &slen, SOCK_NONBLOCK);
 	if (tsock.fd == -1) return {nullptr};
-	return std::unique_ptr<connection> {new connection {tsock}};
+	return std::shared_ptr<connection> {new connection {tsock}};
 }
 
+blueshift::connection::connection(socket & sockin) : sock(sockin) {}
 
 blueshift::connection::~connection() {
 	if (sock.fd != -1) {
@@ -103,6 +105,4 @@ ssize_t blueshift::connection::sendfile(int fd, off_t * offs, size_t size) {
 		else return -1;
 	} else return e;
 }
-
-
 

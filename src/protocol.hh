@@ -17,10 +17,11 @@ namespace blueshift {
 			terminate,
 		};
 		
-		protocol(std::unique_ptr<connection> && conin, module::interface * mi);
+		protocol(std::shared_ptr<connection> conin, module::interface * mi);
 		~protocol();
 		
 		status update();
+		inline int get_fd() { return con->get_fd(); }
 		
 	private:
 		
@@ -82,7 +83,7 @@ namespace blueshift {
 		
 		void setup_send_error();
 		
-		std::unique_ptr<connection> con;
+		std::shared_ptr<connection> con;
 		stream_reader sr;
 		stream_writer sw;
 		

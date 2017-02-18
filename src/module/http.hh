@@ -2,8 +2,10 @@
 
 #include "file.hh"
 #include "istring.hh"
+#include "time.hh"
 
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace blueshift {
@@ -14,6 +16,7 @@ namespace blueshift {
 		
 		typedef std::unordered_map<istring, std::string, ihash, std::equal_to<istring>> field_map;
 		typedef std::unordered_map<std::string, std::string> arg_map;
+		typedef std::unordered_map<std::string, std::string> cookie_map;
 		
 		static std::string const default_mime {"application/octet-stream"};
 		
@@ -95,6 +98,20 @@ namespace blueshift {
 		
 		char const * text_for_status(status_code stat);
 		
+		struct cookie {
+			cookie() = delete;
+			cookie(std::string const & name, std::string const & value) : name(name), value(value) {}
+			std::string serialize() const;
+			std::string name;
+			std::string value;
+			std::string domain = empty_str;
+			std::string path = empty_str;
+			uint64_t max_age = 0;
+			bool secure = false;
+			bool httponly = false;
+			struct hash { uint64_t operator()(cookie const & c) const { return std::hash<std::string>{}(c.name);}};
+		};
+		
 		struct request_header {
 			
 			std::string method;
@@ -103,6 +120,7 @@ namespace blueshift {
 			
 			arg_map arguments;
 			field_map fields;
+			cookie_map cookies;
 			
 			bool is_multipart = false;
 			std::string multipart_type;
@@ -124,6 +142,12 @@ namespace blueshift {
 				return empty_str;
 			}
 			
+			inline std::string const & cookie(char const * f) const {
+				auto i = cookies.find(f);
+				if (i != cookies.end()) return i->second;
+				return empty_str;
+			}
+			
 			inline size_t content_length() const {
 				auto cli = fields.find("Content-Length");
 				if (cli != fields.end()) return strtoul(cli->second.c_str(), nullptr, 10);
@@ -142,6 +166,9 @@ namespace blueshift {
 			std::string version;
 			status_code code;
 			field_map fields;
+			
+			struct cookie_equal_to { bool operator()(cookie const & A, cookie const & B) const { return A.name == B.name; }};
+			std::unordered_set<cookie, cookie::hash, cookie_equal_to> cookies;
 			
 			void clear();
 			bool parse_from(std::vector<char> const &);
