@@ -2,9 +2,7 @@
 
 #define unexpected_terminate { srcprintf_error("unexpected program execution caused a terminate to be hit"); return status::terminate; }
 
-blueshift::protocol::protocol(std::shared_ptr<connection> conin, module::interface * mi) : mi{mi}, con {conin}, sr {*con}, sw {*con} {
-	
-}
+blueshift::protocol::protocol(module::interface * mi, std::shared_ptr<connection> conin) : mi{mi}, con {conin}, sr{conin}, sw{conin} { }
 
 blueshift::protocol::~protocol() {
 	if (processing_token) { 
@@ -14,34 +12,42 @@ blueshift::protocol::~protocol() {
 
 blueshift::protocol::status blueshift::protocol::update() {
 	
-	if (do_informational) {
-		switch (sw.write()) {
-			case stream_writer::status::complete:
-				do_informational = false;
-				res.clear();
-				break;
-			case stream_writer::status::some_wrote:
-				return status::progress;
-			case stream_writer::status::none_wrote:
-				return status::idle;
-			case stream_writer::status::failure:
-				return status::terminate;
+	try {
+		if (do_informational) {
+			switch (sw.write()) {
+				case stream_writer::status::complete:
+					do_informational = false;
+					res.clear();
+					break;
+				case stream_writer::status::some_wrote:
+					return status::progress;
+				case stream_writer::status::none_wrote:
+					return status::idle;
+				case stream_writer::status::failure:
+					return status::terminate;
+			}
 		}
-	}
-	
-	switch (mode) {
-		case mode_e::req_recv:
-			return do_req_recv();
-		case mode_e::req_query:
-			return do_req_query();
-		case mode_e::res_multipart:
-			return do_res_multipart();
-		case mode_e::res_process:
-			return do_res_process();
-		case mode_e::res_finalize:
-			return do_res_finalize();
-		case mode_e::res_send:
-			return do_res_send();
+		
+		switch (mode) {
+			case mode_e::req_recv:
+				return do_req_recv();
+			case mode_e::req_query:
+				return do_req_query();
+			case mode_e::res_multipart:
+				return do_res_multipart();
+			case mode_e::res_process:
+				return do_res_process();
+			case mode_e::res_finalize:
+				return do_res_finalize();
+			case mode_e::res_send:
+				return do_res_send();
+		}
+	} catch (general_exception & ge) {
+		printf("connection terminated: what(): \"%s\"", ge.what());
+		return status::terminate;
+	} catch (...) {
+		printf("WARNING: connection threw something that was not a blueshift::general_exception");
+		return status::terminate;
 	}
 	unexpected_terminate;
 }

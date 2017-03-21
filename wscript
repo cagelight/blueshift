@@ -27,6 +27,8 @@ def configure(ctx):
 	ctx.load("g++")
 	ctx.check(features='c cprogram', lib='pthread', uselib_store='PTHREAD')
 	ctx.check(features='c cprogram', lib='dl', uselib_store='DL')
+	ctx.check_cfg(path='pkg-config', args='--cflags --libs', package='openssl', uselib_store='OPENSSL')
+	ctx.check_cfg(path='pkg-config', args='--cflags --libs', package='botan-2', uselib_store='BOTAN')
 	btup = ctx.options.build_type.upper()
 	if btup in ["DEBUG", "NATIVE", "RELEASE"]:
 		Logs.pprint("PINK", "Setting up environment for known build type: " + btup)
@@ -49,7 +51,7 @@ def build(bld):
 		features = "cxx cxxshlib",
 		target = coremod_name,
 		source = bluemod_files,
-		uselib = [],
+		uselib = ['BOTAN'],
 		includes = [os.path.join(top, 'src', 'module')],
 	)
 	
@@ -59,6 +61,6 @@ def build(bld):
 		target = coreprog_name,
 		source = coreprog_files,
 		use = [coremod_name],
-		uselib = ['PTHREAD', 'DL'],
+		uselib = ['PTHREAD', 'DL', 'OPENSSL'],
 		includes = [os.path.join(top, 'src'), os.path.join(top, 'src', 'module')],
 	)

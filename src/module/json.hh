@@ -38,6 +38,16 @@ struct json_data {
 		inline so (char const * str) : ptr(new json_data{type::str}) { ptr->str = str; }
 		inline ~so() = default;
 		
+		inline bool is_nui() const { return ptr && ptr->type_ == type::nui; }
+		inline bool is_nuf() const { return ptr && ptr->type_ == type::nuf; }
+		inline bool is_str() const { return ptr && ptr->type_ == type::str; }
+		inline bool is_ary() const { return ptr && ptr->type_ == type::ary; }
+		inline bool is_map() const { return ptr && ptr->type_ == type::map; }
+		
+		json_integer_t to_int() const;
+		json_float_t to_float() const;
+		std::string to_string() const;
+		
 		template <typename T, typename std::enable_if<std::is_integral<T>::value, int>::type = 0> inline so & operator = (T t) {
 			if (!ptr || ptr->type_ != type::nui) {
 				ptr.reset(new json_data {type::nui});
@@ -80,9 +90,9 @@ struct json_data {
 			return *this;
 		}
 		// ----
-		operator json_integer_t ();
-		operator json_float_t ();
-		operator std::string ();
+		inline operator json_integer_t () const { return to_int(); }
+		inline operator json_float_t () const { return to_float(); }
+		inline operator std::string () const { return to_string(); }
 		// ----
 		so & operator [] (size_t);
 		so & operator [] (std::string const &);
@@ -92,19 +102,20 @@ struct json_data {
 		inline json_data const & operator * () const { return *ptr; }
 		inline json_data * operator -> () {return ptr.get();}
 		inline json_data const * operator -> () const {return ptr.get();}
-		inline operator bool () {
-			return (ptr && ptr->type_ != type::nil);
-		}
+		inline operator bool () const { return (ptr && ptr->type_ != type::nil); }
 		
 		//these will not overwrite data on incorrect types, unlike the [] operators
-		so get (size_t);
-		so get (std::string const &);
-		inline so get (char const * str) {return get(std::string{str});}
+		so get (size_t) const;
+		so get (std::string const &) const;
 		// ----
 		
 		std::string serialize() const;
 		static so parse(std::string);
 		
+		static inline so nui(json_integer_t i) { so v = {type::nui}; v->nui = i; return v; }
+		static inline so nui(std::string const & i) { so v = {type::nui}; v->nui = strtol(i.c_str(), nullptr, 10); return v; }
+		static inline so nuf(json_float_t f) { so v = {type::nuf}; v->nuf = f; return v; }
+		static inline so nuf(std::string const & f) { so v = {type::nuf}; v->nuf = strtof(f.c_str(), nullptr); return v; }
 		static inline so ary() { return {type::ary}; }
 		static inline so map() { return {type::map}; }
 	};

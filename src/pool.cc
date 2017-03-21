@@ -24,8 +24,45 @@ struct conlink {
 };
 
 struct server {
-	blueshift::listener * lisock;
+	virtual ~server() = default;
+	virtual std::shared_ptr<blueshift::connection> accept() = 0;
+	inline void pulse() { interface->pulse(); }
 	blueshift::module::interface * interface;
+	blueshift::listener lisock;
+protected:
+	server(uint16_t port, blueshift::module::interface * interface) : interface(interface), lisock(port) {}
+};
+
+struct basic_server : public server {
+	basic_server(uint16_t port, blueshift::module::interface * interface) : server(port, interface) {}
+	virtual ~basic_server() = default;
+	virtual std::shared_ptr<blueshift::connection> accept() override {
+		return lisock.accept_basic();
+	}
+};
+
+struct ssl_server : public server {
+	ssl_server(uint16_t port, blueshift::module::interface * interface, std::string const & key, std::string const & cert) : server(port, interface) {
+		ctx = SSL_CTX_new(SSLv23_server_method());
+		if (!ctx) srcthrow("unable to create SSL context");
+		SSL_CTX_set_ecdh_auto(ctx, 1);
+		if (SSL_CTX_use_certificate_file(ctx, cert.c_str(), SSL_FILETYPE_PEM) < 0) {
+			ERR_print_errors_fp(stderr);
+			srcthrow("unable to load certificate");
+		}
+		if (SSL_CTX_use_PrivateKey_file(ctx, key.c_str(), SSL_FILETYPE_PEM) < 0) {
+			ERR_print_errors_fp(stderr);
+			srcthrow("unable to load key");
+		}
+	}
+	virtual ~ssl_server() {
+		if (ctx) SSL_CTX_free(ctx);
+	}
+	virtual std::shared_ptr<blueshift::connection> accept() override {
+		return lisock.accept_secure(ctx);
+	}
+private:
+	SSL_CTX * ctx = nullptr;
 };
 
 static conlink anchor;
@@ -33,7 +70,7 @@ static std::atomic_bool pool_run {true};
 static rwslck pool_rwslck {};
 static std::mutex lilock {};
 static std::atomic<conlink *> cur {&anchor};
-static std::unordered_map<uint16_t, server> lis;
+static std::unordered_map<uint16_t, std::shared_ptr<server>> lis;
 static std::vector<std::thread> pool_workers;
 static std::mutex cvm {};
 static std::condition_variable cv {};
@@ -68,15 +105,15 @@ void thread_run() {
 			lilock.lock();
 			for (auto & li : lis) {
 				
-				li.second.interface->pulse();
+				li.second->pulse();
 				
-				auto c = li.second.lisock->accept();
+				auto c = li.second->accept();
 				if (!c) continue;
 				
 				accepted = true;
 				
 				conlink * new_conlink = new conlink;
-				new_conlink->prot = new blueshift::protocol {c, li.second.interface};
+				new_conlink->prot = new blueshift::protocol {li.second->interface, c};
 				
 				clear_epoll_evt();
 				epoll_evt.events = EPOLLIN | EPOLLOUT | EPOLLET;
@@ -133,14 +170,14 @@ void blueshift::pool::init() {
 
 void blueshift::pool::term() noexcept {
 	pool_run.store(false);
+	cv.notify_all();
 	for (std::thread & thr : pool_workers) {
 		if (thr.joinable()) thr.join();
 	}
 	pool_workers.clear();
 	
 	for (auto const & li : lis) {
-		delete li.second.lisock;
-		li.second.interface->interface_term();
+		li.second->interface->interface_term();
 	}
 	lis.clear();
 	
@@ -156,10 +193,9 @@ void blueshift::pool::term() noexcept {
 }
 
 void blueshift::pool::enter_epoll_loop() {
-	
 	while (blueshift::run_sem) {
 		clear_epoll_evt();
-		epoll_wait(epoll_obj, &epoll_evt, 1, 1000);
+		epoll_wait(epoll_obj, &epoll_evt, 1, 50);
 		cv.notify_one();
 	}
 }
@@ -169,12 +205,23 @@ void blueshift::pool::enter_epoll_loop() {
 void blueshift::pool::start_server(uint16_t port, module::interface * h) {
 	h->interface_init();
 	lilock.lock();
-	auto * li = new blueshift::listener {port};
-	lis[port] = { li, h };
+	auto li = lis[port] = std::shared_ptr<server> { new basic_server {port, h} };
 	
 	clear_epoll_evt();
 	epoll_evt.events = EPOLLIN;
-	epoll_ctl(epoll_obj, EPOLL_CTL_ADD, li->get_fd(), &epoll_evt);
+	epoll_ctl(epoll_obj, EPOLL_CTL_ADD, li->lisock.get_fd(), &epoll_evt);
+	
+	lilock.unlock();
+}
+
+void blueshift::pool::start_server_ssl(uint16_t port, module::interface * h, std::string const & key, std::string const & cert) {
+	h->interface_init();
+	lilock.lock();
+	auto li = lis[port] = std::shared_ptr<server> { new ssl_server {port, h, key, cert} };
+	
+	clear_epoll_evt();
+	epoll_evt.events = EPOLLIN;
+	epoll_ctl(epoll_obj, EPOLL_CTL_ADD, li->lisock.get_fd(), &epoll_evt);
 	
 	lilock.unlock();
 }
@@ -183,8 +230,7 @@ void blueshift::pool::stop_server(uint16_t port) {
 	lilock.lock();
 	auto const & i = lis.find(port);
 	if (i != lis.end()) {
-		delete i->second.lisock;
-		i->second.interface->interface_term();
+		i->second->interface->interface_term();
 		lis.erase(i);
 	}
 	lilock.unlock();

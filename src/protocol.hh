@@ -17,7 +17,7 @@ namespace blueshift {
 			terminate,
 		};
 		
-		protocol(std::shared_ptr<connection> conin, module::interface * mi);
+		protocol(module::interface * mi, std::shared_ptr<connection> conin);
 		~protocol();
 		
 		status update();

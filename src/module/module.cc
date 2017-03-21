@@ -163,7 +163,22 @@ a:active {
 	return false;
 }
 
-void blueshift::module::setup_generic_error(http::response_header & res, module::response_query & resq, http::status_code s) {
+void blueshift::module::setup_generic_error(http::response_header & res, module::response_query & resq, http::status_code s, std::string const & additional_info) {
 	res.code = s;
-	resq.set_body("<h1>" + std::to_string(static_cast<uint16_t>(s)) + " " + std::string(http::text_for_status(s)) + "</h1>", "text/html");
+	std::string rb = "<h1>" + std::to_string(static_cast<uint16_t>(s)) + " " + std::string(http::text_for_status(s)) + "</h1>";
+	if (additional_info != empty_str) {
+		rb += "<hr><span>" + additional_info + "</span>";
+	}
+	resq.set_body(rb, "text/html");
+}
+
+std::unordered_map<std::string, std::string> blueshift::module::form_urlencoded_decode(std::string enc) {
+	std::vector<std::string> fsplit = strops::separate(enc, std::string {"&"});
+	std::unordered_map<std::string, std::string> argmap;
+	for (std::string argset : fsplit) {
+		std::vector<std::string> asplit = strops::separate(argset, std::string {"="}, 1);
+		if (asplit.size() < 2) continue;
+		argmap[http::urldecode(asplit[0])] = http::urldecode(asplit[1]);
+	}
+	return argmap;
 }

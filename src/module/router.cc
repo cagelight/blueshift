@@ -44,12 +44,23 @@ blueshift::module::mss basic_route::finalize_response (blueshift::http::response
 	}
 	response = &res;
 	response_query = &resq;
-	respond();
+	try {
+		respond();
+	} catch (blueshift::general_exception & e) {
+		srcprintf_warning("basic_route caught a general exception: %s", e.what());
+		generic_error(http::status_code::internal_server_error);
+	} catch (std::exception & e) {
+		srcprintf_warning("basic_route caught an unkown exception (derives from std::exception): %s", e.what());
+		generic_error(http::status_code::internal_server_error);
+	} catch (...) {
+		srcprintf_warning("basic_route caught an unknown exception that it could not understand.");
+		generic_error(http::status_code::internal_server_error);
+	}
 	return blueshift::module::mss::proceed;
 }
 
-void blueshift::basic_route::generic_error(http::status_code code) {
-	module::setup_generic_error(*response, *response_query, code);
+void blueshift::basic_route::generic_error(http::status_code code, std::string const & admsg) {
+	module::setup_generic_error(*response, *response_query, code, admsg);
 }
 
 bool blueshift::basic_route::serve_file(std::string const & file_root, bool directory_listing, bool htmlcheck) {
@@ -312,7 +323,7 @@ void router::cleanup (void * token) {
 }
 
 void router::pulse () {
-	
+	for (auto f : pulsefuncs) f();
 }
 
 void router::interface_init () {

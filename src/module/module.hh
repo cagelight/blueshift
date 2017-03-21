@@ -73,6 +73,7 @@ namespace blueshift::module {
 	
 	struct import {
 		void (*start_server) (uint16_t, module::interface *);
+		void (*start_server_ssl) (uint16_t, module::interface *, std::string const & key, std::string const & cert);
 		void (*stop_server) (uint16_t);
 	};
 	

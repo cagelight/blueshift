@@ -52,6 +52,8 @@ char const * blueshift::http::text_for_status(status_code stat) {
 			return "Unauthorized";
 		case status_code::payment_required:
 			return "Payment Required";
+		case status_code::forbidden:
+			return "Forbidden";
 		case status_code::not_found:
 			return "Not Found";
 		case status_code::method_not_allowed:
@@ -177,7 +179,7 @@ blueshift::http::status_code blueshift::http::request_header::parse_from(std::ve
 		for(i = ib; i != data.end() && *i != '\r'; i++) {}
 		if (i == data.end()) return status_code::bad_request;
 		std::string key {fkb, fke};
-		if (key == "Cookie") {
+		if (!strcasecmp("Cookie", key.c_str())) {
 			std::string cookiestr {ib, i};
 			std::vector<std::string> cookie_v = strops::separate(cookiestr, std::string{";"});
 			for (std::string & c : cookie_v) {

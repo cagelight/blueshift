@@ -17,7 +17,7 @@ namespace blueshift {
 			counter_hit,
 		};
 		
-		stream_reader(connection & con);
+		stream_reader(std::shared_ptr<connection> con);
 		
 		status read();
 		size_t size() const {return data.size();}
@@ -38,12 +38,11 @@ namespace blueshift {
 		
 		void recalculate_delimiters();
 		
-		connection & con;
+		std::shared_ptr<connection> con;
 		std::vector<char> data {};
 		std::vector<char> delimiter = {'\r', '\n', '\r', '\n'};
 		size_t delimiter_counter = 0;
 		size_t delimited_position = 0;
-		size_t last_end = 0;
 		
 		ssize_t counter_lim = 0;
 		ssize_t counter_cur = 0;
@@ -58,7 +57,7 @@ namespace blueshift {
 			failure
 		};
 		
-		stream_writer(connection & con);
+		stream_writer(std::shared_ptr<connection> con);
 		
 		status write();
 		void set_header(std::vector<char> &&);
@@ -74,7 +73,7 @@ namespace blueshift {
 			data,
 			file,
 		} mode = mode_e::none;
-		connection & con;
+		std::shared_ptr<connection> con;
 		std::vector<char> header {};
 		std::vector<char> data {};
 		shared_file file = nullptr;

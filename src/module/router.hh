@@ -42,7 +42,7 @@ protected:
 	blueshift::module::response_query * response_query;
 	std::vector<char> body;
 	std::vector<multipart> multiparts;
-	void generic_error(http::status_code code);
+	void generic_error(http::status_code code, std::string const & admsg = empty_str);
 	bool serve_file(std::string const & file_root, bool directory_listing = false, bool htmlcheck = true);
 	bool serve_file(std::string const & path_head, std::string const & path_tail, std::string const & file_root, bool directory_listing = false, bool htmlcheck = true);
 private:
@@ -116,7 +116,7 @@ struct router : public blueshift::module::interface {
 		return ptr;
 	}
 	template <typename T> std::shared_ptr<route_endpoint<T>> route_root(std::string path_root, std::initializer_list<std::string> methods) {
-		blueshift::strops::trim(path_root, '/');
+		blueshift::strops::trimb(path_root, '/');
 		static_assert(std::is_base_of<blueshift::route, T>::value, "T must be derive from route");
 		std::shared_ptr<route_endpoint<T>> ptr {new route_endpoint<T> {}};
 		route_root_insert(path_root, ptr, methods);
@@ -135,10 +135,12 @@ struct router : public blueshift::module::interface {
 		return ptr;
 	}
 	void route_serve(std::string path_root, std::string file_root) {
-		blueshift::strops::trim(path_root, '/');
+		blueshift::strops::trimb(path_root, '/');
 		if (path_root == empty_str) route_fallback_set(std::shared_ptr<route_endpoint_static_serve> {new route_endpoint_static_serve{file_root}}, {"GET"});
 		else route_root_insert(path_root, std::shared_ptr<route_endpoint_static_serve> {new route_endpoint_static_serve{file_root}}, {"GET"});
 	}
+	
+	std::vector<std::function<void()>> pulsefuncs;
 	
 private:
 	

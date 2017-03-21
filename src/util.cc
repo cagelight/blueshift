@@ -3,10 +3,10 @@
 #define STREAM_BUFFER_SIZE 4096
 static thread_local char stream_buffer [STREAM_BUFFER_SIZE];
 
-blueshift::stream_reader::stream_reader(blueshift::connection& con) : con(con) { }
+blueshift::stream_reader::stream_reader(std::shared_ptr<connection> con) : con(con) { }
 
 blueshift::stream_reader::status blueshift::stream_reader::read() {
-	ssize_t c = con.read(stream_buffer, STREAM_BUFFER_SIZE);
+	ssize_t c = con->read(stream_buffer, STREAM_BUFFER_SIZE);
 	if (c < 0) return status::failure;
 	if (c) {
 		data.insert(data.end(), stream_buffer, stream_buffer + c);
@@ -98,13 +98,13 @@ void blueshift::stream_reader::recalculate_delimiters() {
 
 // ================================================================
 
-blueshift::stream_writer::stream_writer(blueshift::connection& con) : con(con) { }
+blueshift::stream_writer::stream_writer(std::shared_ptr<connection> con) : con(con) { }
 
 blueshift::stream_writer::status blueshift::stream_writer::write() {
 	ssize_t c;
 	
 	if (header.size()) {
-		c = con.write(header.data(), header.size());
+		c = con->write(header.data(), header.size());
 		if (c < 0) return status::failure;
 		if (c == 0) return status::none_wrote;
 		header.erase(header.begin(), header.begin() + c);
@@ -118,7 +118,7 @@ blueshift::stream_writer::status blueshift::stream_writer::write() {
 		case mode_e::none:
 			return status::complete; 
 		case mode_e::data:
-			c = con.write(data.data(), data.size());
+			c = con->write(data.data(), data.size());
 			if (c < 0) return status::failure;
 			if (c == 0) return status::none_wrote;
 			data.erase(data.begin(), data.begin() + c);
@@ -128,7 +128,7 @@ blueshift::stream_writer::status blueshift::stream_writer::write() {
 			}
 			return status::some_wrote;
 		case mode_e::file:
-			c = con.sendfile(file->get_FD(), &file_offs, file_size);
+			c = con->sendfile(file->get_FD(), &file_offs, file_size);
 			if (c < 0) return status::failure;
 			if (c == 0) return status::none_wrote;
 			if (file_offs == static_cast<off_t>(file_size)) {

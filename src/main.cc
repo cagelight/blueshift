@@ -9,6 +9,8 @@
 #include <thread>
 
 #include <dlfcn.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
 std::atomic_bool blueshift::run_sem {true};
 
@@ -21,12 +23,20 @@ static void catch_interrupt (int sig) {
 	}
 }
 
+static void blexit() {
+	EVP_cleanup();
+	exit(-1);
+}
+
 int main(int argc, char * * argv) {
 	
 	signal(SIGINT, catch_interrupt);
 	signal(SIGPIPE, SIG_IGN);
 	
-	if (argc == 1) return -1; // TODO -- usage print
+	if (argc == 1) blexit(); // TODO -- usage print
+	
+	SSL_load_error_strings();
+	OpenSSL_add_ssl_algorithms();
 	
 	char const * module_name = argv[1];
 	
@@ -34,7 +44,7 @@ int main(int argc, char * * argv) {
 	if (!handle) {
 		srcprintf_error("could not open module:");
 		blueshift::print(dlerror());
-		return -1;
+		blexit();
 	}
 	
 	blueshift::module::import imp {};
@@ -42,19 +52,20 @@ int main(int argc, char * * argv) {
 	void * mod_init = dlsym(handle, "_blueshift_module_init");
 	if (!mod_init) {
 		srcprintf_error("could not find _blueshift_module_init in module");
-		return -1;
+		blexit();
 	}
 	
 	blueshift::pool::init();
 	
 	imp.start_server = blueshift::pool::start_server;
+	imp.start_server_ssl = blueshift::pool::start_server_ssl;
 	imp.stop_server = blueshift::pool::stop_server;
 	
 	try {
 		reinterpret_cast<void (*) (blueshift::module::import const *)>(mod_init)(&imp);
 	} catch (blueshift::general_exception & e) {
 		srcprintf_error("exception thrown during module initialization:\n%s", e.what());
-		return -1;
+		blexit();
 	}
 	
 	blueshift::pool::enter_epoll_loop();

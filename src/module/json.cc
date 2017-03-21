@@ -1,6 +1,8 @@
 #include "json.hh"
 #include "strops.hh"
 
+#include <iomanip>
+
 blueshift::json_data::json_data (blueshift::json_data::type t) : type_ (t) {
 	switch (t) {
 		case type::nil:
@@ -63,7 +65,7 @@ blueshift::json_data::~json_data () {
 	}
 }
 
-blueshift::json_data::so::operator json_integer_t () {
+blueshift::json_data::json_integer_t blueshift::json_data::so::to_int() const {
 	if (!ptr) return 0;
 	switch (ptr->type_) {
 		case type::nil:
@@ -82,7 +84,7 @@ blueshift::json_data::so::operator json_integer_t () {
 	return 0;
 }
 
-blueshift::json_data::so::operator json_float_t () {
+blueshift::json_data::json_float_t blueshift::json_data::so::to_float() const {
 	if (!ptr) return 0;
 	switch (ptr->type_) {
 		case type::nil:
@@ -101,7 +103,7 @@ blueshift::json_data::so::operator json_float_t () {
 	return 0;
 }
 
-blueshift::json_data::so::operator std::string () {
+std::string blueshift::json_data::so::to_string() const {
 	if (!ptr) return "";
 	switch (ptr->type_) {
 		case type::nil:
@@ -125,7 +127,7 @@ blueshift::json_data::so & blueshift::json_data::so::operator [] (size_t i) {
 		ptr.reset(new json_data{type::ary});
 	}
 	if (ptr->ary.size() <= i) {
-		ptr->ary.resize(i);
+		ptr->ary.resize(i+1);
 	}
 	return ptr->ary[i];
 }
@@ -137,14 +139,14 @@ blueshift::json_data::so & blueshift::json_data::so::operator [] (std::string co
 	return ptr->map[key];
 }
 
-blueshift::json_data::so blueshift::json_data::so::get (size_t i) {
+blueshift::json_data::so blueshift::json_data::so::get (size_t i) const {
 	if (!ptr) return {};
 	if (ptr->type_ != type::ary) return {};
 	if (ptr->ary.size() <= i) return {};
 	return ptr->ary[i];
 }
 
-blueshift::json_data::so blueshift::json_data::so::get (std::string const & str) {
+blueshift::json_data::so blueshift::json_data::so::get (std::string const & str) const {
 	if (!ptr) return {};
 	if (ptr->type_ != type::map) return {};
 	auto const & i = ptr->map.find(str);
@@ -163,8 +165,11 @@ std::string blueshift::json_data::so::serialize () const {
 			return std::to_string(ptr->nui);
 		case type::nuf:
 			return std::to_string(ptr->nuf);
-		case type::str:
-			return "\"" + ptr->str + "\"";
+		case type::str: {
+			std::stringstream ss;
+			ss << std::quoted(ptr->str);
+			return ss.str();
+		}
 		case type::ary: {
 			std::string arystr {"["};
 			bool first = true;
@@ -198,7 +203,7 @@ typedef std::string::const_iterator sci;
 static blueshift::json parse_json_object(sci b, sci e);
 
 static blueshift::json parse_json_num(sci b, sci e) {
-	if (b == e) return nullptr;
+	if (b == e) return {};
 	
 	bool is_float = false;
 	for (sci i = b; i != e; i++) {
@@ -213,15 +218,17 @@ static blueshift::json parse_json_num(sci b, sci e) {
 }
 
 static blueshift::json parse_json_str(sci b, sci e) {
-	if (b == e) return nullptr;
+	if (b == e) return {};
 	
 	std::string str = {b, e};
-	blueshift::strops::trim(str, '\"');
+	std::stringstream ss;
+	ss << str;
+	ss >> std::quoted(str);
 	return std::move(str);
 }
 
 static blueshift::json parse_json_ary(sci b, sci e) {
-	if (std::distance(b, e) < 3) return nullptr;
+	if (std::distance(b, e) < 2) return {};
 	
 	std::string str = {b + 1, e - 1};
 	std::vector<std::string> arysplit;
@@ -268,7 +275,7 @@ static blueshift::json parse_json_ary(sci b, sci e) {
 }
 
 static blueshift::json parse_json_map(sci b, sci e) {
-	if (std::distance(b, e) < 3) return nullptr;
+	if (std::distance(b, e) < 2) return {};
 	
 	std::string str = {b + 1, e - 1};
 	std::vector<std::string> mapsplit;
@@ -317,7 +324,7 @@ static blueshift::json parse_json_map(sci b, sci e) {
 }
 
 static blueshift::json parse_json_object(sci b, sci e) {
-	if (b == e) return nullptr;
+	if (b == e) return {};
 	if (*b == '{') return parse_json_map(b, e);
 	if (*b == '[') return parse_json_ary(b, e);
 	if (*b == '\"') return parse_json_str(b, e);

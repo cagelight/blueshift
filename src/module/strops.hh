@@ -77,6 +77,14 @@ namespace blueshift::strops {
 		while (v.size() && v.back() == tv) v.erase(v.end() - 1);
 	}
 	
+	template <typename T, typename TT = decltype(T::value_type)> void trimb(T & v, TT tv) {
+		while (v.size() && *v.begin() == tv) v.erase(v.begin());
+	}
+	
+	template <typename T, typename TT = decltype(T::value_type)> void trime(T & v, TT tv) {
+		while (v.size() && v.back() == tv) v.erase(v.end() - 1);
+	}
+	
 	static inline bool issymbol1(char c) { return c < 48; }
 	static inline bool isnum(char c) { return c > 47 && c < 58; }
 	
