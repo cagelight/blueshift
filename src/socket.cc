@@ -12,9 +12,11 @@
 #include <netdb.h>
 #include <fcntl.h>
 
+/*
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+*/
 
 static constexpr int enable = 1;
 static constexpr int disable = 0;
@@ -50,6 +52,7 @@ std::shared_ptr<blueshift::basic_connection> blueshift::listener::accept_basic()
 	return std::shared_ptr<basic_connection> {new basic_connection {tsock}};
 }
 
+/*
 std::shared_ptr<blueshift::ssl_connection> blueshift::listener::accept_secure(SSL_CTX * ctx) {
 	socket tsock;
 	socklen_t slen = sizeof(tsock.addr);
@@ -57,6 +60,7 @@ std::shared_ptr<blueshift::ssl_connection> blueshift::listener::accept_secure(SS
 	if (tsock.fd == -1) return {nullptr};
 	return std::shared_ptr<ssl_connection> {new ssl_connection {tsock, ctx}};
 }
+*/
 
 // ================================================================================================================================
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -140,7 +144,7 @@ ssize_t blueshift::basic_connection::sendfile(int fd, off_t * offs, size_t size)
 // ================================================================================================================================
 // --------------------------------------------------------------------------------------------------------------------------------
 // ================================================================================================================================
-
+/*
 blueshift::ssl_connection::ssl_connection(socket & sockin, SSL_CTX * ctx) : connection(sockin) {
 	ssl = SSL_new(ctx);
 	if (!SSL_set_fd(ssl, sock.fd)) {
@@ -201,3 +205,4 @@ ssize_t blueshift::ssl_connection::sendfile(int fd, off_t * offs, size_t size) {
 	if (e > 0) *offs += e;
 	return e;
 }
+*/

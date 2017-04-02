@@ -41,6 +41,7 @@ struct basic_server : public server {
 	}
 };
 
+/*
 struct ssl_server : public server {
 	ssl_server(uint16_t port, blueshift::module::interface * interface, std::string const & key, std::string const & cert) : server(port, interface) {
 		ctx = SSL_CTX_new(SSLv23_server_method());
@@ -64,6 +65,7 @@ struct ssl_server : public server {
 private:
 	SSL_CTX * ctx = nullptr;
 };
+*/
 
 static conlink anchor;
 static std::atomic_bool pool_run {true};
@@ -214,7 +216,9 @@ void blueshift::pool::start_server(uint16_t port, module::interface * h) {
 	lilock.unlock();
 }
 
-void blueshift::pool::start_server_ssl(uint16_t port, module::interface * h, std::string const & key, std::string const & cert) {
+void blueshift::pool::start_server_ssl(uint16_t, module::interface *, std::string const &, std::string const &) {
+	srcthrow("SSL has been disabled due to security concerns, please use something capable of proxy SSL termination (such as nginx)"); 
+	/*
 	h->interface_init();
 	lilock.lock();
 	auto li = lis[port] = std::shared_ptr<server> { new ssl_server {port, h, key, cert} };
@@ -224,6 +228,7 @@ void blueshift::pool::start_server_ssl(uint16_t port, module::interface * h, std
 	epoll_ctl(epoll_obj, EPOLL_CTL_ADD, li->lisock.get_fd(), &epoll_evt);
 	
 	lilock.unlock();
+	*/
 }
 
 void blueshift::pool::stop_server(uint16_t port) {

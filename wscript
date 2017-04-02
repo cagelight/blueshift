@@ -27,7 +27,6 @@ def configure(ctx):
 	ctx.load("g++")
 	ctx.check(features='c cprogram', lib='pthread', uselib_store='PTHREAD')
 	ctx.check(features='c cprogram', lib='dl', uselib_store='DL')
-	ctx.check_cfg(path='pkg-config', args='--cflags --libs', package='openssl', uselib_store='OPENSSL')
 	ctx.check_cfg(path='pkg-config', args='--cflags --libs', package='botan-2', uselib_store='BOTAN')
 	btup = ctx.options.build_type.upper()
 	if btup in ["DEBUG", "NATIVE", "RELEASE"]:
@@ -61,6 +60,6 @@ def build(bld):
 		target = coreprog_name,
 		source = coreprog_files,
 		use = [coremod_name],
-		uselib = ['PTHREAD', 'DL', 'OPENSSL'],
+		uselib = ['PTHREAD', 'DL'],
 		includes = [os.path.join(top, 'src'), os.path.join(top, 'src', 'module')],
 	)

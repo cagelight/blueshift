@@ -94,7 +94,7 @@ blueshift::json_data::json_float_t blueshift::json_data::so::to_float() const {
 		case type::nuf:
 			return ptr->nuf;
 		case type::str:
-			return strtof(ptr->str.c_str(), nullptr);
+			return strtod(ptr->str.c_str(), nullptr);
 		case type::ary:
 			return 0;
 		case type::map:
@@ -211,7 +211,7 @@ static blueshift::json parse_json_num(sci b, sci e) {
 	}
 	
 	if (is_float) {
-		return strtof(std::string {b, e}.c_str(), nullptr);
+		return strtod(std::string {b, e}.c_str(), nullptr);
 	} else {
 		return strtol(std::string {b, e}.c_str(), nullptr, 10);
 	}

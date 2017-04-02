@@ -10,7 +10,7 @@ namespace blueshift {
 struct json_data {
 	
 	typedef long json_integer_t;
-	typedef float json_float_t;
+	typedef double json_float_t;
 	
 	const enum struct type : uint8_t {
 		nil,
@@ -115,7 +115,7 @@ struct json_data {
 		static inline so nui(json_integer_t i) { so v = {type::nui}; v->nui = i; return v; }
 		static inline so nui(std::string const & i) { so v = {type::nui}; v->nui = strtol(i.c_str(), nullptr, 10); return v; }
 		static inline so nuf(json_float_t f) { so v = {type::nuf}; v->nuf = f; return v; }
-		static inline so nuf(std::string const & f) { so v = {type::nuf}; v->nuf = strtof(f.c_str(), nullptr); return v; }
+		static inline so nuf(std::string const & f) { so v = {type::nuf}; v->nuf = strtod(f.c_str(), nullptr); return v; }
 		static inline so ary() { return {type::ary}; }
 		static inline so map() { return {type::map}; }
 	};

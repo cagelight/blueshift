@@ -9,8 +9,6 @@
 #include <thread>
 
 #include <dlfcn.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
 
 std::atomic_bool blueshift::run_sem {true};
 
@@ -24,7 +22,6 @@ static void catch_interrupt (int sig) {
 }
 
 static void blexit() {
-	EVP_cleanup();
 	exit(-1);
 }
 
@@ -34,10 +31,7 @@ int main(int argc, char * * argv) {
 	signal(SIGPIPE, SIG_IGN);
 	
 	if (argc == 1) blexit(); // TODO -- usage print
-	
-	SSL_load_error_strings();
-	OpenSSL_add_ssl_algorithms();
-	
+
 	char const * module_name = argv[1];
 	
 	void * handle = dlopen(module_name, RTLD_NOW|RTLD_DEEPBIND);
