@@ -11,17 +11,26 @@ namespace blueshift {
 	
 	struct protocol {
 		
+		virtual ~protocol() = default;
+
 		enum struct status : uint_fast8_t {
 			idle,
 			progress,
 			terminate,
 		};
 		
-		protocol(module::interface * mi, std::shared_ptr<connection> conin);
-		~protocol();
+		virtual status update() = 0;
+		virtual int get_fd() = 0;
 		
-		status update();
-		inline int get_fd() { return con->get_fd(); }
+	};
+	
+	struct protocol_http : public protocol {
+		
+		protocol_http(module::interface * mi, std::shared_ptr<connection> conin);
+		~protocol_http();
+		
+		virtual status update() override;
+		virtual int get_fd() override { return con->get_fd(); }
 		
 	private:
 		

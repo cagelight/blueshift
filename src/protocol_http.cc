@@ -2,15 +2,15 @@
 
 #define unexpected_terminate { srcprintf_error("unexpected program execution caused a terminate to be hit"); return status::terminate; }
 
-blueshift::protocol::protocol(module::interface * mi, std::shared_ptr<connection> conin) : mi{mi}, con {conin}, sr{conin}, sw{conin} { }
+blueshift::protocol_http::protocol_http(module::interface * mi, std::shared_ptr<connection> conin) : mi{mi}, con {conin}, sr{conin}, sw{conin} { }
 
-blueshift::protocol::~protocol() {
+blueshift::protocol_http::~protocol_http() {
 	if (processing_token) { 
 		mi->cleanup(processing_token);
 	}
 }
 
-blueshift::protocol::status blueshift::protocol::update() {
+blueshift::protocol_http::status blueshift::protocol_http::update() {
 	
 	try {
 		if (do_informational) {
@@ -52,7 +52,7 @@ blueshift::protocol::status blueshift::protocol::update() {
 	unexpected_terminate;
 }
 
-blueshift::protocol::status blueshift::protocol::do_req_recv() {
+blueshift::protocol_http::status blueshift::protocol_http::do_req_recv() {
 	
 	switch (sr.read()) {
 		case stream_reader::status::some_read:
@@ -118,7 +118,7 @@ blueshift::protocol::status blueshift::protocol::do_req_recv() {
 	return status::progress;
 }
 
-blueshift::protocol::status blueshift::protocol::do_req_query() {
+blueshift::protocol_http::status blueshift::protocol_http::do_req_query() {
 	auto e = mi->query(&processing_token, req, reqq);
 	if (e == module::mss::waiting) return status::idle;
 	
@@ -156,7 +156,7 @@ blueshift::protocol::status blueshift::protocol::do_req_query() {
 	unexpected_terminate;
 }
 
-blueshift::protocol::status blueshift::protocol::do_res_process() {
+blueshift::protocol_http::status blueshift::protocol_http::do_res_process() {
 	
 	if (general_buffer.size()) {
 		if (mi->process(processing_token, req, general_buffer) == module::mss::waiting) return status::idle;
@@ -200,7 +200,7 @@ blueshift::protocol::status blueshift::protocol::do_res_process() {
 	unexpected_terminate;
 }
 
-blueshift::protocol::status blueshift::protocol::do_res_multipart() {
+blueshift::protocol_http::status blueshift::protocol_http::do_res_multipart() {
 	
 	switch (mmode) {
 		case multipart_mode::begin: {
@@ -342,7 +342,7 @@ blueshift::protocol::status blueshift::protocol::do_res_multipart() {
 	return status::progress;
 }
 
-blueshift::protocol::status blueshift::protocol::do_res_finalize() {
+blueshift::protocol_http::status blueshift::protocol_http::do_res_finalize() {
 	
 	if (mi->finalize_response(processing_token, req, res, resq) == module::mss::waiting) return status::idle;
 	if (processing_token) { 
@@ -424,7 +424,7 @@ blueshift::protocol::status blueshift::protocol::do_res_finalize() {
 	return status::progress;
 }
 
-blueshift::protocol::status blueshift::protocol::do_res_send() {
+blueshift::protocol_http::status blueshift::protocol_http::do_res_send() {
 	
 	switch (sw.write()) {
 		case stream_writer::status::complete:
@@ -444,7 +444,7 @@ blueshift::protocol::status blueshift::protocol::do_res_send() {
 
 // ================================================================================================================================
 
-void blueshift::protocol::setup_req_recv() {
+void blueshift::protocol_http::setup_req_recv() {
 	mode = mode_e::req_recv;
 	general_buffer.clear();
 	general_buffer.shrink_to_fit();
@@ -452,7 +452,7 @@ void blueshift::protocol::setup_req_recv() {
 	sr.set_delimiter("\r\n\r\n");
 }
 
-void blueshift::protocol::setup_req_query() {
+void blueshift::protocol_http::setup_req_query() {
 	mode = mode_e::req_query;
 	general_buffer.clear();
 	reqq.reset();
@@ -462,35 +462,35 @@ void blueshift::protocol::setup_req_query() {
 	}
 }
 
-void blueshift::protocol::setup_res_process() {
+void blueshift::protocol_http::setup_res_process() {
 	mode = mode_e::res_process;
 	general_buffer.clear();
 	pwm = process_wait_mode::partial;
 	mi->process_begin(processing_token, req);
 }
 
-void blueshift::protocol::setup_res_multipart() {
+void blueshift::protocol_http::setup_res_multipart() {
 	mode = mode_e::res_multipart;
 	general_buffer.clear();
 	mmode = multipart_mode::begin;
 	mwm = multipart_wait_mode::partial;
 }
 
-void blueshift::protocol::setup_res_finalize() {
+void blueshift::protocol_http::setup_res_finalize() {
 	mode = mode_e::res_finalize;
 	general_buffer.clear();
 	res.clear();
 	resq.reset();
 }
 
-void blueshift::protocol::setup_res_send() {
+void blueshift::protocol_http::setup_res_send() {
 	mode = mode_e::res_send;
 	general_buffer.clear();
 }
 
 // ================================================================================================================================
 
-void blueshift::protocol::setup_send_error() {
+void blueshift::protocol_http::setup_send_error() {
 	res.fields.clear();
 	std::string generror {};
 	generror += "<h1>";

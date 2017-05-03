@@ -25,9 +25,9 @@ namespace blueshift {
 		socket sock {};
 	};
 	
-	struct basic_connection : public connection {
-		basic_connection(socket &);
-		virtual ~basic_connection();
+	struct connection_http : public connection {
+		connection_http(socket &);
+		virtual ~connection_http();
 		
 		bool read_available();
 		
@@ -36,6 +36,7 @@ namespace blueshift {
 		virtual ssize_t sendfile(int fd, off_t * offs, size_t size) override;
 	};
 	
+	/*
 	struct ssl_connection : public connection {
 		ssl_connection(socket &, SSL_CTX * ctx);
 		virtual ~ssl_connection();
@@ -50,13 +51,15 @@ namespace blueshift {
 		SSL * ssl = nullptr;
 		int current_sendfile_fd;
 	};
+	*/
 	
 	struct listener {
 		listener(uint16_t port);
 		~listener();
 		
-		std::shared_ptr<basic_connection> accept_basic();
-		std::shared_ptr<ssl_connection> accept_secure(SSL_CTX * ctx);
+		std::shared_ptr<connection_http> accept_http();
+		//std::shared_ptr<ssl_connection> accept_secure(SSL_CTX * ctx);
+		
 		
 		inline int get_fd() { return sock.fd; }
 		

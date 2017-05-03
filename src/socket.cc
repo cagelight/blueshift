@@ -44,12 +44,12 @@ blueshift::listener::~listener() {
 	}
 }
 
-std::shared_ptr<blueshift::basic_connection> blueshift::listener::accept_basic() {
+std::shared_ptr<blueshift::connection_http> blueshift::listener::accept_http() {
 	socket tsock;
 	socklen_t slen = sizeof(tsock.addr);
 	tsock.fd = accept4(sock.fd, reinterpret_cast<struct sockaddr *>(&tsock.addr), &slen, SOCK_NONBLOCK);
 	if (tsock.fd == -1) return {nullptr};
-	return std::shared_ptr<basic_connection> {new basic_connection {tsock}};
+	return std::shared_ptr<connection_http> {new connection_http {tsock}};
 }
 
 /*
@@ -83,16 +83,16 @@ std::string blueshift::connection::get_IP() {
 // ================================================================================================================================
 
 
-blueshift::basic_connection::basic_connection(socket & sockin) : connection(sockin) {}
+blueshift::connection_http::connection_http(socket & sockin) : connection(sockin) {}
 
-blueshift::basic_connection::~basic_connection() {
+blueshift::connection_http::~connection_http() {
 	if (sock.fd != -1) {
 		shutdown(sock.fd, SHUT_RDWR);
 		close(sock.fd);
 	}
 }
 
-bool blueshift::basic_connection::read_available() {
+bool blueshift::connection_http::read_available() {
 	fd_set fds;
 	FD_ZERO(&fds);
 	FD_SET(sock.fd, &fds);
@@ -104,7 +104,7 @@ bool blueshift::basic_connection::read_available() {
 	return chk;
 }
 
-ssize_t blueshift::basic_connection::read(char * buf, size_t buf_len) {
+ssize_t blueshift::connection_http::read(char * buf, size_t buf_len) {
 	ssize_t e = recv(sock.fd, buf, buf_len, 0);
 	if (e == 0) return - 1;
 	else if (e < 0) {
@@ -117,7 +117,7 @@ ssize_t blueshift::basic_connection::read(char * buf, size_t buf_len) {
 	} else return e;
 }
 
-ssize_t blueshift::basic_connection::write(char const * buf, size_t buf_len) {
+ssize_t blueshift::connection_http::write(char const * buf, size_t buf_len) {
 	ssize_t e = send(sock.fd, buf, buf_len, 0);
 	if (e < 0) {
 		if (errno == EAGAIN
@@ -129,7 +129,7 @@ ssize_t blueshift::basic_connection::write(char const * buf, size_t buf_len) {
 	} else return e;
 }
 
-ssize_t blueshift::basic_connection::sendfile(int fd, off_t * offs, size_t size) {
+ssize_t blueshift::connection_http::sendfile(int fd, off_t * offs, size_t size) {
 	ssize_t e = ::sendfile(sock.fd, fd, offs, size);
 	if (e < 0) {
 		if (errno == EAGAIN

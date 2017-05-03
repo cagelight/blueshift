@@ -51,8 +51,8 @@ int main(int argc, char * * argv) {
 	
 	blueshift::pool::init();
 	
-	imp.start_server = blueshift::pool::start_server;
-	imp.start_server_ssl = blueshift::pool::start_server_ssl;
+	imp.start_server_http = blueshift::pool::start_server_http;
+	imp.start_server_https = blueshift::pool::start_server_https;
 	imp.stop_server = blueshift::pool::stop_server;
 	
 	try {

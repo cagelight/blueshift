@@ -25,19 +25,31 @@ struct conlink {
 
 struct server {
 	virtual ~server() = default;
-	virtual std::shared_ptr<blueshift::connection> accept() = 0;
-	inline void pulse() { interface->pulse(); }
-	blueshift::module::interface * interface;
+	virtual conlink * accept() = 0;
 	blueshift::listener lisock;
 protected:
-	server(uint16_t port, blueshift::module::interface * interface) : interface(interface), lisock(port) {}
+	server(uint16_t port) : lisock(port) {}
 };
 
-struct basic_server : public server {
-	basic_server(uint16_t port, blueshift::module::interface * interface) : server(port, interface) {}
-	virtual ~basic_server() = default;
-	virtual std::shared_ptr<blueshift::connection> accept() override {
-		return lisock.accept_basic();
+struct server_http : public server {
+	server_http(uint16_t port, blueshift::module::interface * interface) : server(port), interface(interface) {}
+	virtual ~server_http() { interface->interface_term(); }
+	virtual conlink * accept() override {
+		interface->pulse();
+		auto c = lisock.accept_http();
+		if (!c) return nullptr;
+		conlink * new_conlink = new conlink;
+		new_conlink->prot = new blueshift::protocol_http {interface, c};
+		return new_conlink;
+	}
+	blueshift::module::interface * interface;
+};
+
+struct server_websocket : public server {
+	server_websocket(uint16_t port) : server(port) {}
+	virtual ~server_websocket() = default;
+	virtual conlink * accept() override {
+		return nullptr;
 	}
 };
 
@@ -107,25 +119,20 @@ void thread_run() {
 			lilock.lock();
 			for (auto & li : lis) {
 				
-				li.second->pulse();
-				
-				auto c = li.second->accept();
+				conlink * c = li.second->accept();
 				if (!c) continue;
 				
 				accepted = true;
 				
-				conlink * new_conlink = new conlink;
-				new_conlink->prot = new blueshift::protocol {li.second->interface, c};
-				
 				clear_epoll_evt();
 				epoll_evt.events = EPOLLIN | EPOLLOUT | EPOLLET;
-				epoll_ctl(epoll_obj, EPOLL_CTL_ADD, new_conlink->prot->get_fd(), &epoll_evt);
+				epoll_ctl(epoll_obj, EPOLL_CTL_ADD, c->prot->get_fd(), &epoll_evt);
 				
 				pool_rwslck.write_lock();
-				this_conlink->prev->next = new_conlink;
-				new_conlink->prev = this_conlink->prev;
-				this_conlink->prev = new_conlink;
-				new_conlink->next = this_conlink;
+				this_conlink->prev->next = c;
+				c->prev = this_conlink->prev;
+				this_conlink->prev = c;
+				c->next = this_conlink;
 				pool_rwslck.write_unlock();
 				
 			}
@@ -176,11 +183,8 @@ void blueshift::pool::term() noexcept {
 	for (std::thread & thr : pool_workers) {
 		if (thr.joinable()) thr.join();
 	}
-	pool_workers.clear();
 	
-	for (auto const & li : lis) {
-		li.second->interface->interface_term();
-	}
+	pool_workers.clear();
 	lis.clear();
 	
 	size_t cc = 0;
@@ -204,10 +208,10 @@ void blueshift::pool::enter_epoll_loop() {
 
 #include "module.hh"
 
-void blueshift::pool::start_server(uint16_t port, module::interface * h) {
+void blueshift::pool::start_server_http(uint16_t port, module::interface * h) {
 	h->interface_init();
 	lilock.lock();
-	auto li = lis[port] = std::shared_ptr<server> { new basic_server {port, h} };
+	auto li = lis[port] = std::shared_ptr<server> { new server_http {port, h} };
 	
 	clear_epoll_evt();
 	epoll_evt.events = EPOLLIN;
@@ -216,7 +220,7 @@ void blueshift::pool::start_server(uint16_t port, module::interface * h) {
 	lilock.unlock();
 }
 
-void blueshift::pool::start_server_ssl(uint16_t, module::interface *, std::string const &, std::string const &) {
+void blueshift::pool::start_server_https(uint16_t, module::interface *, std::string const &, std::string const &) {
 	srcthrow("SSL has been disabled due to security concerns, please use something capable of proxy SSL termination (such as nginx)"); 
 	/*
 	h->interface_init();
@@ -235,7 +239,6 @@ void blueshift::pool::stop_server(uint16_t port) {
 	lilock.lock();
 	auto const & i = lis.find(port);
 	if (i != lis.end()) {
-		i->second->interface->interface_term();
 		lis.erase(i);
 	}
 	lilock.unlock();
